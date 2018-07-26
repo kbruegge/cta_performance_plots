@@ -1,5 +1,7 @@
 import numpy as np
 import astropy.units as u
+from scipy.stats import norm
+from scipy.integrate import quad
 
 
 @u.quantity_input(energies=u.TeV, e_min=u.TeV, e_max=u.TeV)
@@ -204,6 +206,37 @@ class CosmicRaySpectrum(Spectrum):
         self.normalization_constant = normalization_constant
 
 
+class CTAElectronSpectrum(Spectrum):
+    '''
+    See the IRF ASWG report page 22 and 23
+    '''
+
+    def __init__(self, index=-3.43, normalization_constant=2.385E-9 * u.Unit('cm-2 s-1 TeV-1 sr-1')):
+        self.index = index
+        self.normalization_constant = normalization_constant
+
+    def flux(self, energy):
+
+        energy = energy.to('TeV')
+        N = self.normalization_constant * (energy / u.TeV)**(self.index)
+
+        mu = -0.101
+        sigma = 0.741
+        f = 1.95
+        b = (1 + f * (np.exp(norm.pdf(np.log10(energy / u.TeV), loc=mu, scale=sigma)) - 1))
+        flux = N * b
+
+        return flux.to(1 / (u.TeV * u.s * u.cm**2 * u.sr))
+
+    def _integral(self, e_min, e_max):
+        a = e_min.to(u.TeV).value
+        b = e_max.to(u.TeV).value
+
+        result, _ = quad(lambda e: self.flux(e * u.TeV).value, a, b)
+
+        return result * self.normalization_constant.unit * u.TeV
+
+
 class CosmicRaySpectrumPDG(Spectrum):
     '''
     PDG Cosmic Ray spectrum. This contains all nucleus types. (proton, helium, iron, ...)
@@ -213,6 +246,16 @@ class CosmicRaySpectrumPDG(Spectrum):
         self.index = index
         self.normalization_constant = normalization_constant
 
+
+
+class CTAProtonSpectrum(Spectrum):
+    '''
+    Protons Spectrum as used by the CTA ASWG.
+    '''
+
+    def __init__(self, index=-2.62, normalization_constant=9.8E-6 / (u.sr * u.s * u.cm**2 * u.TeV)):
+        self.index = index
+        self.normalization_constant = normalization_constant
 
 
 class MCSpectrum(Spectrum):
@@ -293,6 +336,9 @@ class MCSpectrum(Spectrum):
             N = self._integral(e_min.to('TeV'), e_max.to('TeV')) * (generation_area.to(u.m**2) * u.s)
             self.normalization_constant = (total_showers_simulated / N) / (u.TeV * u.m**2 * u.s)
 
+
+    def __repr__(self):
+        return f'E_Min:{self.e_min}, E_Max:{self.e_max}, N_total:{self.total_showers_simulated}, index:{self.index}, normalization contant:{self.normalization_constant}'
 
     def draw_energy_distribution(self, size):
         return super().draw_energy_distribution(
@@ -375,8 +421,7 @@ class MCSpectrum(Spectrum):
             t_assumed_obs,
     ):
         '''
-        This method returns weights for the given events based on the information
-        about the events generator and the index and normalization of the spectrum.
+        This method returns weights for the given events based on the given spectrum.
         '''
 
         if self.extended_source != other_spectrum.extended_source:
