@@ -26,6 +26,21 @@ def load_effective_area_requirement(site='paranal'):
     return df
 
 
+def load_sensitivity_requirement():
+    path = 'sensitivity_requirement_south_50.txt'
+    r = resource_string('cta_plots.resources', path)
+    df = pd.read_csv(BytesIO(r), delim_whitespace=True, names=['log_energy', 'sensitivity'], index_col=False,  engine='python')
+    df['energy'] = 10**df.log_energy
+    return df
+
+
+def load_sensitivity_reference():
+    path = '/ascii/CTA-Performance-prod3b-v1-South-20deg-50h-DiffSens.txt'
+    r = resource_string('cta_plots.resources', path)
+    df = pd.read_csv(BytesIO(r), delimiter='\t\t', skiprows=10, names=['e_min', 'e_max', 'sensitivity'], engine='python')
+    return df
+
+
 @u.quantity_input(energies=u.TeV, e_min=u.TeV, e_max=u.TeV)
 def make_energy_bins(
         energies=None,

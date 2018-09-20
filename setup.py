@@ -34,6 +34,7 @@ setup(
     entry_points={
         'console_scripts': [
             'cta_plot_effective_area = cta_plots.effective_area:main',
+            'cta_plot_sensitivity = cta_plots.sensitivity:main',
             'cta_plot_h_max_distance = cta_plots.h_max_distance:main',
             'cta_plot_h_max = cta_plots.h_max:main',
             'cta_plot_energy_resolution = cta_plots.energy_resolution:main',
