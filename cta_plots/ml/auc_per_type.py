@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 from sklearn.metrics import roc_curve, roc_auc_score
 import fact.io
+from ..colors import telescope_color
 
 
 def add_rectangles(ax, offset=0.1):
@@ -76,11 +77,13 @@ def main(predicted_gammas, predicted_protons, what, output):
 
         fpr, tpr, _ = roc_curve(y_true, y_score, pos_label=1)
         auc = roc_auc_score(y_true, y_score)
-        plt.plot(fpr, tpr, lw=2, label=f'AUC for {tel_type}:  {auc:{1}.{4}}')
+        plt.plot(fpr, tpr, lw=2, label=f'AUC for {tel_type}:  {auc:{1}.{3}}', color=telescope_color[tel_type])
 
     add_rectangles(plt.gca())
     plt.legend()
-
+    plt.xlabel('false positive rate')
+    plt.ylabel('true positive rate')
+    plt.tight_layout()
     if output:
         plt.savefig(output)
     else:

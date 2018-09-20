@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 from sklearn.metrics import roc_curve, roc_auc_score
 import fact.io
+from mpl_toolkits.axes_grid1.inset_locator import zoomed_inset_axes, mark_inset
 
 
 def add_rectangles(ax, offset=0.1):
@@ -64,7 +65,7 @@ def main(predicted_gammas, predicted_protons, output):
     fpr, tpr, _ = roc_curve(y_true, y_score, pos_label=1)
     auc = roc_auc_score(y_true, y_score)
 
-    plt.plot(fpr, tpr, lw=1)
+    plt.plot(fpr, tpr, lw=2)
 
     add_rectangles(plt.gca())
 
@@ -78,7 +79,25 @@ def main(predicted_gammas, predicted_protons, output):
         fontsize=11
     )
 
+    if False:
+        ax = plt.gca()
+        axins = zoomed_inset_axes(ax, 2, loc='upper center')  # zoom = 6
+        axins.plot(fpr, tpr, lw=2)
 
+        # sub region of the original image
+        x1, x2, y1, y2 = 0.8, 1, 0, 0.5
+        axins.set_xlim(x1, x2)
+        axins.set_ylim(y1, y2)
+        axins.set_xticks([])
+        axins.set_yticks([])
+
+        # draw a bbox of the region of the inset axes in the parent axes and
+        # connecting lines between the bbox and the inset axes area
+        mark_inset(ax, axins, loc1=3, loc2=4, ec='0.7')
+
+        plt.setp(axins.spines.values(), color='darkgray')
+
+    plt.tight_layout()
     if output:
         plt.savefig(output)
     else:

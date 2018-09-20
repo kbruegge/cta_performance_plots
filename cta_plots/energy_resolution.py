@@ -5,9 +5,9 @@ import numpy as np
 import astropy.units as u
 from scipy.stats import binned_statistic
 import fact.io
-from spectrum import make_energy_bins
+from . import make_energy_bins, load_energy_resolution_requirement
 from matplotlib.colors import PowerNorm
-from colors import default_cmap, main_color
+from .colors import default_cmap, main_color
 
 
 @click.command()
@@ -21,14 +21,14 @@ from colors import default_cmap, main_color
 def main(input_dl3_file, output, threshold, multiplicity, color, reference, relative):
     bins, bin_center, bin_widths = make_energy_bins(e_min=0.02 * u.TeV, e_max=200 * u.TeV, bins=20)
     columns = ['array_event_id', 'mc_energy', 'gamma_energy_prediction_mean', 'num_triggered_telescopes']
-    
+
     if threshold > 0:
         columns.append('gamma_prediction_mean')
-    
+
     gammas = fact.io.read_data(input_dl3_file, key='array_events', columns=columns).dropna()
-    
+
     if multiplicity > 2:
-        gammas = gammas.query(f'num_triggered_telescopes >= {multiplicity}')
+        gammas = gammas.query(f'num_triggered_telescopes >= {multiplicity}').copy()
 
     if threshold > 0:
         gammas = gammas.query(f'gamma_prediction_mean > {threshold}').copy()
@@ -47,27 +47,25 @@ def main(input_dl3_file, output, threshold, multiplicity, color, reference, rela
 
     plt.ylabel('$\\frac{E_R}{E_T} - 1$')
 
-    max_y = 1.5
+    max_y = 1.
     bins_y = np.linspace(-0.5, max_y, 40)
 
     log_emin, log_emax = np.log10(bins.min().value), np.log10(bins.max().value)
     plt.hexbin(e_true, resolution, xscale='log', extent=(log_emin, log_emax, -1, max_y), cmap=default_cmap, norm=PowerNorm(0.5))
     plt.colorbar()
     if relative:
-        label = '$0.5 * IQR_{68}$ of $(E_R / E_T) - 1$'
+        label = '$0.5 \cdot IQR_{68}$ of $(E_R / E_T) - 1$'
     else:
         label = '$Q_{68}$ of $abs((E_R /  E_T) - 1)$'
 
     plt.hlines(iqr, bins[:-1], bins[1:], lw=2, color=color, label=label)
 
     if reference:
-        path = 'resources/CTA-Performance-prod3b-v1-South-20deg-50h-Eres.txt'
-        df = pd.read_csv(path, delimiter='\t\t', skiprows=11, names=['energy', 'resolution'], engine='python')
+        df = load_energy_resolution_requirement()
         plt.plot(df.energy, df.resolution, '--', color='#5b5b5b', label='Prod3B Reference')
 
-
     plt.xscale('log')
-    plt.xlabel(r'$True Energy /  \mathrm{TeV}$')
+    plt.xlabel('True Energy / TeV')
     plt.ylim([bins_y.min(), bins_y.max()])
     plt.legend()
     plt.tight_layout()

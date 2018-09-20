@@ -1,8 +1,8 @@
 from itertools import cycle
 
-LST = '#4D7298'
-MST = '#77a6b6'
-SST = '#9dc3c2'
+LST = '#306fb0'
+MST = '#6199ac'
+SST = '#b2d2d4'
 
 telescope_color = {
     'LST': LST,
@@ -32,6 +32,7 @@ color_pallete = [
     '#4f372d',
     '#00a0b0',
     '#edc951',
+    '#4ab174',
     '#eb6841',
 ]
 

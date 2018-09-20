@@ -3,12 +3,17 @@ from setuptools import setup, find_packages
 setup(
     name='cta_plots',
     version='0.0.1',
-    description='a collection of plotting scrtipts for CTA',
-    url='https://github.com/fact-project/fact_plots',
+    description='A collection of plotting scrtipts for CTA',
+    url='https://github.com/mackaiver/cta_performance_plots',
     author='Kai Brügge',
     author_email='kai.bruegge@tu-dortmund.de',
     license='BEER',
+    package_data={
+        'resources/ascii': ['*.txt'],
+        'resources/': ['*.txt'],
+    },
     packages=find_packages(),
+    include_package_data=True,
     install_requires=[
         'click',
         'h5py',
@@ -23,17 +28,24 @@ setup(
         'scipy',
         'tables',
         'tqdm',
+        'seaborn',
     ],
     zip_safe=False,
     entry_points={
         'console_scripts': [
+            'cta_plot_effective_area = cta_plots.effective_area:main',
             'cta_plot_h_max_distance = cta_plots.h_max_distance:main',
+            'cta_plot_h_max = cta_plots.h_max:main',
             'cta_plot_energy_resolution = cta_plots.energy_resolution:main',
+            'cta_plot_energy_migration = cta_plots.energy_migration:main',
             'cta_plot_angular_resolution = cta_plots.angular_resolution_vs_energy:main',
             'cta_plot_impact_distance = cta_plots.impact_distance:main',
+            'cta_plot_impact = cta_plots.impact:main',
             'cta_plot_auc_per_type = cta_plots.ml.auc_per_type:main',
             'cta_plot_auc = cta_plots.ml.auc:main',
+            'cta_plot_auc_vs_energy = cta_plots.ml.auc_vs_energy:main',
             'cta_plot_prediction_hist = cta_plots.ml.prediction_hist:main',
+            'cta_plot_importances = cta_plots.ml.importances:main',
         ],
     }
 )
