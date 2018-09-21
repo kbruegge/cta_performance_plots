@@ -30,12 +30,12 @@ def count_events_in_region(df, theta2=0.03, prediction_threshold=0.5):
 
 
 def extrapolate_off_events(df, theta2=0.03, prediction_threshold=0.5, sigma=1):
-    if prediction_threshold == 1:
+    if prediction_threshold > 1:
         return 0
     df = df.query('theta < 1.0')
 
     c_bins = np.linspace(0, 1, 30)
-    c_bin_center = (c_bins[0:-1] + c_bins[1:])/2
+    c_bin_center = (c_bins[0:-1] + c_bins[1:]) / 2
     c_bin_width = np.diff(c_bins)
     nodes = c_bin_center + c_bin_width
 
@@ -57,7 +57,6 @@ def extrapolate_off_events(df, theta2=0.03, prediction_threshold=0.5, sigma=1):
 def count_off_events_in_region(df, theta2=0.03, prediction_threshold=0.5):
     df = df.query('theta < 1.0')
     m = df.gamma_prediction_mean >= prediction_threshold
-#     m = ((df.theta**2 <= theta2) & (df.gamma_prediction_mean >= prediction_threshold))
     return df[m].weight.sum() * theta2, m.sum() * theta2
 
 
@@ -161,13 +160,13 @@ def calc_relative_sensitivity(signal, background, bin_edges, alpha=1, use_true_e
         n_signal, t_signal = count_events_in_region(s, theta2=theta2, prediction_threshold=cut)
 
         if method == 'simple':
-            n_background, t_background = count_off_events_in_region(b, theta2=theta2/alpha, prediction_threshold=cut)
+            n_background, t_background = count_off_events_in_region(b, theta2=theta2 / alpha, prediction_threshold=cut)
 #             extra = extrapolate_off_events(b, theta2=theta2/alpha, prediction_threshold=cut)
 #             print(f'Extrapolated: {extra}, Simple{(n_background, t_background)}')
         elif method == 'exact':
-            n_background, t_background = count_events_in_region(b, theta2=theta2/alpha, prediction_threshold=cut)
+            n_background, t_background = count_events_in_region(b, theta2=theta2 / alpha, prediction_threshold=cut)
         elif method == 'extrapolate':
-            n_background, t_background = extrapolate_off_events(b, theta2=theta2/alpha, prediction_threshold=cut)
+            n_background, t_background = extrapolate_off_events(b, theta2=theta2 / alpha, prediction_threshold=cut)
 
         print(t_background, t_signal)
         rs = scaling_factor(n_signal, n_background, t_signal, t_background, alpha=alpha)
@@ -178,11 +177,8 @@ def calc_relative_sensitivity(signal, background, bin_edges, alpha=1, use_true_e
 
 
     m, l, h = np.array(relative_sensitivities).T
-    d = {'sensitivity': m, 'sensitivity_low': l, 'sensitivity_high': h, 'threshold':thresholds, 'theta':thetas}
+    d = {'sensitivity': m, 'sensitivity_low': l, 'sensitivity_high': h, 'threshold':thresholds, 'theta':thetas, 'e_min': bin_edges[:-1], 'e_max': bin_edges[1:]}
     return pd.DataFrame(d)
-
-
-
 
 
 def calculate_theta(df, source_alt=70 * u.deg, source_az=0 * u.deg):
@@ -200,13 +196,11 @@ def load_data(gamma_input, proton_input, t_obs=50 * u.h):
 
     gammas = fact.io.read_data(gamma_input, key='array_events', columns=columns)
     gammas = gammas.dropna()
-    gammas['type'] = 0
     gamma_runs = fact.io.read_data(gamma_input, key='runs')
     mc_production_gamma = MCSpectrum.from_cta_runs(gamma_runs)
 
     protons = fact.io.read_data(proton_input, key='array_events', columns=columns)
     protons = protons.dropna()
-    protons['type'] = 1
     proton_runs = fact.io.read_data(proton_input, key='runs')
     mc_production_proton = MCSpectrum.from_cta_runs(proton_runs)
 
@@ -216,55 +210,93 @@ def load_data(gamma_input, proton_input, t_obs=50 * u.h):
     return gammas, protons
 
 
-def plot_sensitivity(rs, bin_edges, bin_center, color='blue', **kwargs):
+def plot_sensitivity(rs, bin_edges, bin_center, color='blue', ax=None, **kwargs):
     sensitivity = rs.sensitivity.values * (crab.flux(bin_center) * bin_center**2).to(u.erg / (u.s * u.cm**2))
     sensitivity_low = rs.sensitivity_low.values * (crab.flux(bin_center) * bin_center**2).to(u.erg / (u.s * u.cm**2))
     sensitivity_high = rs.sensitivity_high.values * (crab.flux(bin_center) * bin_center**2).to(u.erg / (u.s * u.cm**2))
     xerr = [np.abs(bin_edges[:-1] - bin_center).value, np.abs(bin_edges[1:] - bin_center).value]
     yerr = [np.abs(sensitivity - sensitivity_low).value, np.abs(sensitivity - sensitivity_high).value]
-    plt.errorbar(bin_center.value, sensitivity.value, xerr=xerr, yerr=yerr, linestyle='', ecolor=color, **kwargs)
 
-    plt.xscale('log')
-    plt.yscale('log')
-    plt.plot(bin_edges, crab.flux(bin_edges) * bin_edges**2, '--', color='gray')
-    plt.ylim([1E-14, 1E-9])
+    if not ax:
+        ax = plt.gca()
+    ax.errorbar(bin_center.value, sensitivity.value, xerr=xerr, yerr=yerr, linestyle='', ecolor=color, **kwargs)
+    return ax
 
+
+def plot_crab_flux(bin_edges, ax=None):
+    if not ax:
+        ax = plt.gca()
+    ax.plot(bin_edges, crab.flux(bin_edges) * bin_edges**2, ls=':', color='#a3a3a3', label='Crab Flux')
+    return ax
+
+
+def plot_requirement(ax=None):
+    df = load_sensitivity_requirement()
+    if not ax:
+        ax = plt.gca()
+    ax.plot(df.energy, df.sensitivity, color='#888888', lw=1, label='Requirement')
+    ax.plot(df.energy, df.sensitivity * 3, color='#888888', lw=0.5)
+    return ax
+
+
+def plot_refrence(ax=None):
     df = load_sensitivity_reference()
     bin_edges = sorted(list(set(df.e_min) | set(df.e_max))) * u.TeV
     bin_center = np.sqrt(bin_edges[:-1] * bin_edges[1:])
-    sensitivity = df.sensitivity.values * u.erg/(u.cm**2 * u.s)
+    sensitivity = df.sensitivity.values * u.erg / (u.cm**2 * u.s)
+
+    if not ax:
+        ax = plt.gca()
 
     xerr = [np.abs(bin_edges[:-1] - bin_center).value, np.abs(bin_edges[1:] - bin_center).value]
-    plt.errorbar(bin_center.value, sensitivity.value, xerr=xerr, linestyle='', color='black',)
-
-    df = load_sensitivity_requirement()
-    plt.plot(df.energy, df.sensitivity, color='gray')
-
-    plt.plot(df.energy, df.sensitivity * 3, color='lightgray', linestyle='--')
-    return plt.gca()
+    ax.errorbar(bin_center.value, sensitivity.value, xerr=xerr, linestyle='', color='#3e3e3e', label='Reference')
+    return ax
 
 
 @click.command()
 @click.argument('gamma_input', type=click.Path(exists=True))
 @click.argument('proton_input', type=click.Path(exists=True))
 @click.option('-o', '--output', type=click.Path(exists=False))
-def main(gamma_input, proton_input, output):
+@click.option('-m', '--multiplicity', default=2)
+@click.option('-t', '--t_obs', default=50)
+@click.option('-c', '--color', default='xkcd:green')
+@click.option('--reference/--no-reference', default=False)
+@click.option('--requirement/--no-requirement', default=False)
+@click.option('--flux/--no-flux', default=True)
+def main(gamma_input, proton_input, output, multiplicity, t_obs, color, reference, requirement, flux):
+    t_obs *= u.h
+
     n_bins = 20
     e_min, e_max = 0.02 * u.TeV, 200 * u.TeV
     bin_edges, bin_center, bin_width = make_energy_bins(e_min=e_min, e_max=e_max, bins=n_bins, centering='log')
-    gammas, protons = load_data(gamma_input, proton_input, t_obs=50 * u.h)
+
+    gammas, protons = load_data(gamma_input, proton_input, t_obs=t_obs)
     gammas['theta'] = calculate_theta(gammas)
     protons['theta'] = calculate_theta(protons)
 
-    n_tel = 5
-    s = gammas.query(f'num_triggered_telescopes >= {n_tel}')
-    b = protons.query(f'num_triggered_telescopes >= {n_tel}')
-    rs_mult_extrapolate_5 = calc_relative_sensitivity(s, b, bin_edges, method='extrapolate', alpha=0.2)
+    if multiplicity > 2:
+        gammas = gammas.query(f'num_triggered_telescopes >= {multiplicity}')
+        protons = protons.query(f'num_triggered_telescopes >= {multiplicity}')
+        label = f'This Analysis. Multiplicity > {multiplicity}'
+    else:
+        label = 'This Analysis'
 
-    ax = plot_sensitivity(rs_mult_extrapolate_5, bin_edges, bin_center, color='xkcd:green', label='mult extrapolate 5')
+    rs_mult_extrapolate = calc_relative_sensitivity(gammas, protons, bin_edges, method='extrapolate', alpha=0.2)
+    # rs_mult_extrapolate.to_csv('sensi.csv', index=False)
 
+    ax = plot_sensitivity(rs_mult_extrapolate, bin_edges, bin_center, color=color, label=label)
+
+    if reference:
+        plot_refrence(ax)
+    if requirement:
+        plot_requirement(ax)
+    if flux:
+        plot_crab_flux(bin_edges, ax)
+
+    ax.set_xscale('log')
+    ax.set_yscale('log')
     ax.set_xlim([1E-2, 10**(2.5)])
-    # ax.set_ylabel(r'$ E^2 \cdot \mathrm{photons} \quad \mathrm{erg} /( \mathrm{s} \quad  \mathrm{cm}^2$ )  in ' + str(t_obs.to('h')) )
+    ax.set_ylabel(r'$ E^2 \cdot \quad \mathrm{erg} /( \mathrm{s} \quad  \mathrm{cm}^2$ )  in ' + str(t_obs.to('h')))
     ax.set_xlabel(r'$E /  \mathrm{TeV}$')
     ax.legend()
 
