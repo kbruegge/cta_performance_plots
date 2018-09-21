@@ -133,7 +133,7 @@ def main(predicted_gammas, predicted_protons, output_file, what):
 
         plt.legend(loc='upper left')
 
-    plt.xlabel('Prediction Threshold')
+    plt.xlabel('Classifier Score')
     plt.ylabel('Normalized Counts')
     plt.tight_layout()
     if output_file:

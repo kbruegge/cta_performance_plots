@@ -84,7 +84,7 @@ def main(predicted_gammas, predicted_protons, output, n_bins, sample):
 
     plt.ylim([0.93, 1])
     plt.xscale('log')
-    plt.xlabel('True Energy /  TeV')
+    plt.xlabel(r'$E_{True} / TeV$')
     plt.ylabel('Area Under RoC Curve')
     plt.legend()
     # add_rectangles(plt.gca())

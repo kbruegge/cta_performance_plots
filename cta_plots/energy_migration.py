@@ -35,8 +35,8 @@ def main(gamma_file, output, title, colormap, norm):
     plt.plot([0.003, 330], [0.003, 330], lw=1, color='gray')
     plt.xscale('log')
     plt.yscale('log')
-    plt.xlabel('True Energy / TeV')
-    plt.ylabel('Predicted Energy / TeV')
+    plt.xlabel(r'$E_{True} / TeV$')
+    plt.xlabel(r'$E_{Reco} / TeV$')
     plt.tight_layout()
 
     if output:

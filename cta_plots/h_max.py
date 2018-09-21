@@ -38,7 +38,7 @@ def main(input_dl3_file, output, site, colormap, color):
     plt.xscale('log')
     # plt.yscale('log')
     plt.ylabel('True H Max / meter')
-    plt.xlabel('True Energy / TeV ')
+    plt.xlabel(r'$E_{True} / TeV$')
     plt.legend()
     plt.tight_layout()
     if output:

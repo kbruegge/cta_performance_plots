@@ -43,7 +43,7 @@ def main(input_dl3_file, output, threshold, multiplicity, colormap, color):
     plt.xscale('log')
     plt.yscale('log')
     plt.ylabel('Distance to True Position / meter')
-    plt.xlabel(r'True Energy / TeV ')
+    plt.xlabel(r'$E_{True} / TeV$')
     plt.legend()
     plt.tight_layout()
     if output:

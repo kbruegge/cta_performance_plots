@@ -40,7 +40,7 @@ def main(input_dl3_file, output, site, colormap, color):
 
     plt.xscale('log')
     plt.ylabel('Distance to true H max  / meter')
-    plt.xlabel(r'True Energy / TeV ')
+    plt.xlabel(r'$E_{True} / TeV$')
 
     plt.tight_layout()
     if output:
