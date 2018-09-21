@@ -226,7 +226,7 @@ def plot_sensitivity(rs, bin_edges, bin_center, color='blue', ax=None, **kwargs)
 def plot_crab_flux(bin_edges, ax=None):
     if not ax:
         ax = plt.gca()
-    ax.plot(bin_edges, crab.flux(bin_edges) * bin_edges**2, ls=':', color='#a3a3a3', label='Crab Flux')
+    ax.plot(bin_edges, crab.flux(bin_edges) * bin_edges**2, ls=':', lw=1, color='#a3a3a3', label='Crab Flux')
     return ax
 
 
@@ -234,8 +234,8 @@ def plot_requirement(ax=None):
     df = load_sensitivity_requirement()
     if not ax:
         ax = plt.gca()
-    ax.plot(df.energy, df.sensitivity, color='#888888', lw=1, label='Requirement')
-    ax.plot(df.energy, df.sensitivity * 3, color='#888888', lw=0.5)
+    ax.plot(df.energy, df.sensitivity, color='#888888', lw=1.2, label='Requirement Offline')
+    ax.plot(df.energy, df.sensitivity * 3, color='#bebebe', lw=0.5, label='Requirement Real Time')
     return ax
 
 
@@ -296,9 +296,10 @@ def main(gamma_input, proton_input, output, multiplicity, t_obs, color, referenc
     ax.set_xscale('log')
     ax.set_yscale('log')
     ax.set_xlim([1E-2, 10**(2.5)])
-    ax.set_ylabel(r'$ E^2 \cdot \quad \mathrm{erg} /( \mathrm{s} \quad  \mathrm{cm}^2$ )  in ' + str(t_obs.to('h')))
-    ax.set_xlabel(r'$E /  \mathrm{TeV}$')
+    ax.set_ylabel(r'$ E^2 \cdot \quad \mathrm{erg} /( \mathrm{s} \quad  \mathrm{cm}^2$)')
+    ax.set_xlabel(r'$E_{Reco} /  \mathrm{TeV}$')
     ax.legend()
+    plt.title('Point source sensitivity (Prod3b, HB89, Paranal) in ' + str(t_obs.to('h')))
 
     if output:
         plt.savefig(output)

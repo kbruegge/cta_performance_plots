@@ -33,8 +33,9 @@ def calculate_distance_theta(df, source_alt=70 * u.deg, source_az=0 * u.deg):
 @click.option('--title', default=None)
 @click.option('--reference/--no-reference', default=False)
 @click.option('--complementary/--no-complementary', default=False)
-def main(input_dl3_file, output, threshold, reference, complementary, multiplicity, title):
-    columns = ['mc_alt', 'mc_az', 'mc_energy', 'az_prediction', 'alt_prediction']
+@click.option('--plot_e_reco', is_flag=True, default=False)
+def main(input_dl3_file, output, threshold, reference, complementary, multiplicity, title, plot_e_reco):
+    columns = ['mc_alt', 'mc_az', 'mc_energy', 'az_prediction', 'alt_prediction', 'gamma_energy_prediction_mean']
 
     if threshold > 0:
         columns.append('gamma_prediction_mean')
@@ -56,9 +57,13 @@ def main(input_dl3_file, output, threshold, reference, complementary, multiplici
 
     distance = calculate_distance_theta(df, source_alt=df.mc_alt.values * u.rad, source_az=df.mc_az.values * u.rad)
 
-    bins, bin_center, bin_widths = make_energy_bins(e_min=0.01 * u.TeV, e_max=300 * u.TeV, bins=20)
+    bins, bin_center, bin_widths = make_energy_bins(e_min=0.01 * u.TeV, e_max=120 * u.TeV, bins=20)
 
-    x = df.mc_energy.values
+    if plot_e_reco:
+        x = df.gamma_energy_prediction_mean.values
+    else:
+        x = df.mc_energy.values
+
     y = distance
 
     b_68, bin_edges, binnumber = binned_statistic(x, y, statistic=lambda y: np.percentile(y, 68), bins=bins)
@@ -79,7 +84,11 @@ def main(input_dl3_file, output, threshold, reference, complementary, multiplici
     plt.xscale('log')
     plt.yscale('log')
     plt.ylabel('Distance to True Position / degree')
-    plt.xlabel(r'True Energy / TeV ')
+    if plot_e_reco:
+        plt.xlabel(r'$E_{Reco} / TeV$')
+    else:
+        plt.xlabel(r'$E_{True} / TeV$')
+
     plt.legend()
     plt.tight_layout()
     if title:

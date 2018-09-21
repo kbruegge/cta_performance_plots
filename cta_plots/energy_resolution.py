@@ -18,8 +18,9 @@ from .colors import default_cmap, main_color
 @click.option('-c', '--color', default=main_color)
 @click.option('--reference/--no-reference', default=False)
 @click.option('--relative/--no-relative', default=True)
-def main(input_dl3_file, output, threshold, multiplicity, color, reference, relative):
-    bins, bin_center, bin_widths = make_energy_bins(e_min=0.02 * u.TeV, e_max=200 * u.TeV, bins=20)
+@click.option('--plot_e_reco', is_flag=True, default=False)
+def main(input_dl3_file, output, threshold, multiplicity, color, reference, relative, plot_e_reco):
+    bins, bin_center, bin_widths = make_energy_bins(e_min=0.02 * u.TeV, e_max=150 * u.TeV, bins=20)
     columns = ['array_event_id', 'mc_energy', 'gamma_energy_prediction_mean', 'num_triggered_telescopes']
 
     if threshold > 0:
@@ -33,17 +34,19 @@ def main(input_dl3_file, output, threshold, multiplicity, color, reference, rela
     if threshold > 0:
         gammas = gammas.query(f'gamma_prediction_mean > {threshold}').copy()
 
-    gammas['energy_bin'] = pd.cut(gammas.mc_energy, bins)
-
     e_true = gammas.mc_energy
     e_reco = gammas.gamma_energy_prediction_mean
 
+    if plot_e_reco:
+        e_x = e_reco
+    else:
+        e_x = e_true
+
     resolution = (e_reco - e_true) / e_true
     if relative:
-        iqr, bin_edges, binnumber = binned_statistic(e_true, resolution, statistic=lambda y: ((np.percentile(y, 84) - np.percentile(y, 16)) / 2), bins=bins)
-
+        iqr, bin_edges, binnumber = binned_statistic(e_x, resolution, statistic=lambda y: ((np.percentile(y, 84) - np.percentile(y, 16)) / 2), bins=bins)
     else:
-        iqr, bin_edges, binnumber = binned_statistic(e_true, resolution, statistic=lambda y: np.percentile(np.abs(y), 68), bins=bins)
+        iqr, bin_edges, binnumber = binned_statistic(e_x, resolution, statistic=lambda y: np.percentile(np.abs(y), 68), bins=bins)
 
     plt.ylabel('$\\frac{E_R}{E_T} - 1$')
 
@@ -51,8 +54,11 @@ def main(input_dl3_file, output, threshold, multiplicity, color, reference, rela
     bins_y = np.linspace(-0.5, max_y, 40)
 
     log_emin, log_emax = np.log10(bins.min().value), np.log10(bins.max().value)
-    plt.hexbin(e_true, resolution, xscale='log', extent=(log_emin, log_emax, -1, max_y), cmap=default_cmap, norm=PowerNorm(0.5))
+
+
+    plt.hexbin(e_x, resolution, xscale='log', extent=(log_emin, log_emax, -1, max_y), cmap=default_cmap, norm=PowerNorm(0.5))
     plt.colorbar()
+
     if relative:
         label = '$0.5 \cdot IQR_{68}$ of $(E_R / E_T) - 1$'
     else:
@@ -65,7 +71,11 @@ def main(input_dl3_file, output, threshold, multiplicity, color, reference, rela
         plt.plot(df.energy, df.resolution, '--', color='#5b5b5b', label='Prod3B Reference')
 
     plt.xscale('log')
-    plt.xlabel('True Energy / TeV')
+
+    if plot_e_reco:
+        plt.xlabel('$E_{Reco} / TeV$')
+    else:
+        plt.xlabel('$E_{True} / TeV$')
     plt.ylim([bins_y.min(), bins_y.max()])
     plt.legend()
     plt.tight_layout()

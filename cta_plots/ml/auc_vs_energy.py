@@ -32,11 +32,11 @@ columns = ['array_event_id', 'gamma_prediction', 'telescope_type_name', 'run_id'
 @click.option('-b', '--n_bins', default=20, help='number of energy bins to plot')
 @click.option('--sample/--no-sample', default=True, help='Whether to sample bkg events from all energies')
 def main(predicted_gammas, predicted_protons, output, n_bins, sample):
-    telecope_events = fact.io.read_data(predicted_gammas, key='telescope_events', columns=columns, last=100000).dropna()
+    telecope_events = fact.io.read_data(predicted_gammas, key='telescope_events', columns=columns, last=1000000).dropna()
     array_events = fact.io.read_data(predicted_gammas, key='array_events', columns=['array_event_id', 'mc_energy', 'total_intensity'])
     gammas = pd.merge(telecope_events, array_events, on='array_event_id')
 
-    telecope_events = fact.io.read_data(predicted_protons, key='telescope_events', columns=columns, last=100000).dropna()
+    telecope_events = fact.io.read_data(predicted_protons, key='telescope_events', columns=columns, last=1000000).dropna()
     array_events = fact.io.read_data(predicted_protons, key='array_events', columns=['array_event_id', 'mc_energy', 'total_intensity'])
     protons = pd.merge(telecope_events, array_events, on='array_event_id')
 

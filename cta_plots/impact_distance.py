@@ -19,7 +19,6 @@ from .colors import default_cmap, main_color
 def main(input_dl3_file, output, threshold, multiplicity, colormap, color):
     df = fact.io.read_data(input_dl3_file, key='array_events', ).dropna()
 
-
     if multiplicity > 2:
         df = df.query(f'num_triggered_telescopes >= {multiplicity}')
 
@@ -43,7 +42,7 @@ def main(input_dl3_file, output, threshold, multiplicity, colormap, color):
 
     plt.xscale('log')
     plt.yscale('log')
-    plt.ylabel('Distance to True Impact Position / meter')
+    plt.ylabel('Distance to True Position / meter')
     plt.xlabel(r'True Energy / TeV ')
     plt.legend()
     plt.tight_layout()

@@ -53,7 +53,8 @@ def add_rectangles(ax, offset=0.1):
         exists=False,
         dir_okay=False,
     ))
-def main(predicted_gammas, predicted_protons, what, output):
+@click.option('--box/--no-box', default=True)
+def main(predicted_gammas, predicted_protons, what, output, box):
     cols = ['gamma_prediction', 'array_event_id', 'run_id', 'telescope_type_name']
 
     gammas = fact.io.read_data(predicted_gammas, key='telescope_events', columns=cols).dropna()
@@ -79,7 +80,8 @@ def main(predicted_gammas, predicted_protons, what, output):
         auc = roc_auc_score(y_true, y_score)
         plt.plot(fpr, tpr, lw=2, label=f'AUC for {tel_type}:  {auc:{1}.{3}}', color=telescope_color[tel_type])
 
-    add_rectangles(plt.gca())
+    if box:
+        add_rectangles(plt.gca())
     plt.legend()
     plt.xlabel('false positive rate')
     plt.ylabel('true positive rate')

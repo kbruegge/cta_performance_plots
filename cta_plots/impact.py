@@ -24,14 +24,15 @@ def main(input_dl3_file, output, multiplicity, colormap, color):
     x_min = -50
     x_max = 50
     plt.hexbin(x, y, extent=(x_min, x_max, x_min, x_max), cmap=colormap, norm=LogNorm())
+    #
+    plt.ylim([x_min, x_max])
+    plt.xlim([x_min, x_max])
     plt.colorbar()
 
     plt.xlabel('x offset to true impact / meter')
     plt.ylabel('y offset to true impact / meter')
-
-    # plt.ylim([x_min, x_max])
-    # plt.xlim([x_min, x_max])
-
+    ax = plt.gca()
+    ax.tick_params(axis='x', which='major', pad=7)
     plt.tight_layout()
     if output:
         plt.savefig(output)
