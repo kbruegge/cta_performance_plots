@@ -1,29 +1,16 @@
 import click
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 import astropy.units as u
 from astropy.coordinates import Angle
 from scipy.stats import binned_statistic
-import fact.io
 from . import make_energy_bins
 from . import load_angular_resolution_requirement
 from matplotlib.colors import PowerNorm
 from astropy.coordinates.angle_utilities import angular_separation
 from .colors import default_cmap, main_color, main_color_complement
-
-
-
-def calculate_distance_theta(df, source_alt=70 * u.deg, source_az=0 * u.deg):
-    source_az = Angle(source_az).wrap_at(180 * u.deg)
-    source_alt = Angle(source_alt)
-
-    az = Angle(df.az_prediction.values, unit=u.rad).wrap_at(180 * u.deg)
-    alt = Angle(df.alt_prediction.values, unit=u.rad)
-
-    distance = angular_separation(source_az, source_alt, az, alt).to(u.deg)
-
-    return distance
-
+from .coordinate_utils import calculate_distance_to_true_source_position
 
 @click.command()
 @click.argument('input_dl3_file', type=click.Path(exists=True))
@@ -35,14 +22,14 @@ def calculate_distance_theta(df, source_alt=70 * u.deg, source_az=0 * u.deg):
 @click.option('--complementary/--no-complementary', default=False)
 @click.option('--plot_e_reco', is_flag=True, default=False)
 def main(input_dl3_file, output, threshold, reference, complementary, multiplicity, title, plot_e_reco):
-    columns = ['mc_alt', 'mc_az', 'mc_energy', 'az_prediction', 'alt_prediction', 'gamma_energy_prediction_mean']
+    columns = ['mc_alt', 'mc_az', 'mc_energy', 'az', 'alt', 'gamma_energy_prediction_mean']
 
     if threshold > 0:
         columns.append('gamma_prediction_mean')
     if multiplicity > 2:
         columns.append('num_triggered_telescopes')
 
-    df = fact.io.read_data(input_dl3_file, key='array_events', columns=columns).dropna()
+    df = pd.read_hdf(input_dl3_file, key='array_events', columns=columns).dropna()
 
     if threshold > 0:
         df = df.query(f'gamma_prediction_mean > {threshold}').copy()
@@ -55,7 +42,7 @@ def main(input_dl3_file, output, threshold, reference, complementary, multiplici
     else:
         color = main_color
 
-    distance = calculate_distance_theta(df, source_alt=df.mc_alt.values * u.rad, source_az=df.mc_az.values * u.rad)
+    distance = calculate_distance_to_true_source_position(df)
 
     bins, bin_center, bin_widths = make_energy_bins(e_min=0.01 * u.TeV, e_max=120 * u.TeV, bins=20)
 
@@ -100,4 +87,5 @@ def main(input_dl3_file, output, threshold, reference, complementary, multiplici
 
 
 if __name__ == "__main__":
+    # pylint: disable=no-value-for-parameter
     main()

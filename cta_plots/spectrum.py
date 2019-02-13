@@ -394,10 +394,9 @@ class MCSpectrum(Spectrum):
         mc_num_showers = runs.mc_num_showers.sum()
         # assume these numbers are equal for each run
         mc_spectral_index = runs.mc_spectral_index.iloc[0]
-        mc_num_reuse = runs.mc_num_reuse.iloc[0]
-        mc_min_energy = runs.mc_min_energy.iloc[0] * u.TeV
-        mc_max_energy = runs.mc_max_energy.iloc[0] * u.TeV
-        mc_max_energy = runs.mc_max_energy.iloc[0] * u.TeV
+        mc_num_reuse = runs.mc_shower_reuse.iloc[0]
+        mc_min_energy = runs.mc_energy_range_min.iloc[0] * u.TeV
+        mc_max_energy = runs.mc_energy_range_max.iloc[0] * u.TeV
         generation_area = (runs.mc_max_scatter_range.iloc[0] * u.m)**2 * np.pi
         generator_solid_angle = (runs.mc_max_viewcone_radius.iloc[0] - runs.mc_min_viewcone_radius.iloc[0]) * u.deg
 

@@ -19,8 +19,8 @@ def main(input_files, output, threshold, complementary, label):
     bins, bin_center, bin_widths = make_energy_bins(e_min=0.003 * u.TeV, e_max=330 * u.TeV, bins=10)
     columns = ['mc_core_x', 'mc_core_y', 'core_x_prediction', 'core_y_prediction', 'mc_energy']
 
-    for input, color, l in zip(input_files, color_cycle, label):
-        df = fact.io.read_data(input, key='array_events', columns=columns).dropna()
+    for input_file, color, l in zip(input_files, color_cycle, label):
+        df = fact.io.read_data(input_file, key='array_events', columns=columns).dropna()
 
         distance = np.sqrt((df.mc_core_x - df.core_x_prediction)**2 + (df.mc_core_y - df.core_y_prediction)**2)
 
@@ -46,4 +46,5 @@ def main(input_files, output, threshold, complementary, label):
 
 
 if __name__ == "__main__":
+    # pylint: disable=no-value-for-parameter
     main()

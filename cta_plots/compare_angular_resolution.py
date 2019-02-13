@@ -9,19 +9,7 @@ import fact.io
 from spectrum import make_energy_bins
 import os
 from astropy.coordinates.angle_utilities import angular_separation
-
-
-
-def calculate_distance_theta(df, source_alt=70 * u.deg, source_az=0 * u.deg):
-    source_az = Angle(source_az).wrap_at(180 * u.deg)
-    source_alt = Angle(source_alt)
-
-    az = Angle(df.az_prediction.values, unit=u.rad).wrap_at(180 * u.deg)
-    alt = Angle(df.alt_prediction.values, unit=u.rad)
-
-    distance = angular_separation(source_az, source_alt, az, alt).to(u.deg)
-
-    return distance
+from .coordinate_utils import calculate_distance_to_true_source_position
 
 
 @click.command()
@@ -41,22 +29,20 @@ def main(input_files, output, threshold, multiplicity, reference, complementary)
 
     for input_file in input_files:
         df = fact.io.read_data(input_file, key='array_events', columns=columns).dropna()
-        print(len(df))
 
         if threshold > 0:
             df = df.query(f'gamma_prediction_mean > {threshold}').copy()
         if multiplicity > 2:
             df = df.query(f'num_triggered_telescopes >= {multiplicity}').copy()
 
-        distance = calculate_distance_theta(df, source_alt=df.mc_alt.values * u.rad, source_az=df.mc_az.values * u.rad)
+        distance = calculate_distance_to_true_source_position(df)
 
         b_68, bin_edges, binnumber = binned_statistic(df.mc_energy.values, distance, statistic=lambda y: np.percentile(y, 68), bins=bins)
 
         plt.step(bin_center, b_68, lw=2, label=os.path.basename(input_file), where='mid')
 
     if reference:
-        path = 'resources/CTA-Performance-prod3b-v1-South-20deg-50h-Angres.txt'
-        df = pd.read_csv(path, delimiter='\t\t', skiprows=11, names=['energy', 'resolution'], engine='python')
+        df = load_angular_resolution_requirement()
         plt.plot(df.energy, df.resolution, '--', color='#5b5b5b', label='Prod3B Reference')
 
     plt.xscale('log')

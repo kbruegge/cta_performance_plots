@@ -4,9 +4,6 @@ from . import make_energy_bins
 import fact.io
 import click
 
-from astropy.coordinates import Angle
-from astropy.coordinates.angle_utilities import angular_separation
-
 from scipy.ndimage import gaussian_filter
 from scipy.interpolate import interp1d
 
@@ -18,7 +15,7 @@ from scipy.optimize import brute
 from scipy.optimize import minimize_scalar
 from tqdm import tqdm
 from . import load_sensitivity_reference, load_sensitivity_requirement
-
+from .coordinate_utils import calculate_distance_to_true_source_position
 
 crab = CrabSpectrum()
 cosmic_proton = CosmicRaySpectrum()
@@ -181,18 +178,8 @@ def calc_relative_sensitivity(signal, background, bin_edges, alpha=1, use_true_e
     return pd.DataFrame(d)
 
 
-def calculate_theta(df, source_alt=70 * u.deg, source_az=0 * u.deg):
-    source_az = Angle(source_az).wrap_at(180 * u.deg)
-    source_alt = Angle(source_alt)
-
-    az = Angle(df.az_prediction.values, unit=u.rad).wrap_at(180*u.deg)
-    alt = Angle(df.alt_prediction.values, unit=u.rad)
-
-    return angular_separation(source_az, source_alt, az, alt).to(u.deg).value
-
-
 def load_data(gamma_input, proton_input, t_obs=50 * u.h):
-    columns = ['gamma_prediction_mean', 'gamma_energy_prediction_mean', 'az_prediction', 'alt_prediction', 'mc_alt', 'mc_az', 'mc_energy', 'num_triggered_telescopes']
+    columns = ['gamma_prediction_mean', 'gamma_energy_prediction_mean', 'az', 'alt', 'mc_alt', 'mc_az', 'mc_energy', 'num_triggered_telescopes']
 
     gammas = fact.io.read_data(gamma_input, key='array_events', columns=columns)
     gammas = gammas.dropna()
@@ -271,8 +258,8 @@ def main(gamma_input, proton_input, output, multiplicity, t_obs, color, referenc
     bin_edges, bin_center, bin_width = make_energy_bins(e_min=e_min, e_max=e_max, bins=n_bins, centering='log')
 
     gammas, protons = load_data(gamma_input, proton_input, t_obs=t_obs)
-    gammas['theta'] = calculate_theta(gammas)
-    protons['theta'] = calculate_theta(protons)
+    gammas['theta'] = calculate_distance_to_true_source_position(gammas)
+    protons['theta'] = calculate_distance_to_true_source_position(protons)
 
     if multiplicity > 2:
         gammas = gammas.query(f'num_triggered_telescopes >= {multiplicity}')
