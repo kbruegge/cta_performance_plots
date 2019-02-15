@@ -15,7 +15,7 @@ from scipy.optimize import brute
 from scipy.optimize import minimize_scalar
 from tqdm import tqdm
 from . import load_sensitivity_reference, load_sensitivity_requirement
-from .coordinate_utils import calculate_distance_to_true_source_position
+from .coordinate_utils import calculate_distance_to_true_source_position, calculate_distance_to_point_source
 
 crab = CrabSpectrum()
 cosmic_proton = CosmicRaySpectrum()
@@ -122,17 +122,16 @@ def find_best_cuts(signal, background, alpha, regions=slice(0.0025, 0.08, 0.01),
 #         if t_background/alpha < 1:
 #             print(f'{cuts} not enough background')
 #             return 0
-
         if t_signal <= t_background * alpha + 10:
-            print('counts not large enough')
+            # print('counts not large enough')
             return 0
 
 
         if t_signal <= t_background * alpha + 10:
-            print('signal not large enough')
+            # print('signal not large enough')
             return 0
         if n_signal*5 < n_background * 0.01:
-            print('sys problem')
+            # print('sys problem')
             return 0
 
 
@@ -158,8 +157,6 @@ def calc_relative_sensitivity(signal, background, bin_edges, alpha=1, use_true_e
 
         if method == 'simple':
             n_background, t_background = count_off_events_in_region(b, theta2=theta2 / alpha, prediction_threshold=cut)
-#             extra = extrapolate_off_events(b, theta2=theta2/alpha, prediction_threshold=cut)
-#             print(f'Extrapolated: {extra}, Simple{(n_background, t_background)}')
         elif method == 'exact':
             n_background, t_background = count_events_in_region(b, theta2=theta2 / alpha, prediction_threshold=cut)
         elif method == 'extrapolate':
@@ -258,8 +255,17 @@ def main(gamma_input, proton_input, output, multiplicity, t_obs, color, referenc
     bin_edges, bin_center, bin_width = make_energy_bins(e_min=e_min, e_max=e_max, bins=n_bins, centering='log')
 
     gammas, protons = load_data(gamma_input, proton_input, t_obs=t_obs)
-    gammas['theta'] = calculate_distance_to_true_source_position(gammas)
-    protons['theta'] = calculate_distance_to_true_source_position(protons)
+    gamma_runs = pd.read_hdf(gamma_input, key='runs')
+    if (gamma_runs.mc_diffuse == 1).any():
+        print(Fore.RED + 'Need point-like gammas to do theta square plot')
+        print(Fore.RESET)
+        return -1
+
+    source_az = gammas.mc_az.iloc[0] * u.deg
+    source_alt = gammas.mc_alt.iloc[0] * u.deg
+
+    gammas['theta'] = calculate_distance_to_point_source(gammas, source_alt=source_alt, source_az=source_az).to(u.deg).value
+    protons['theta'] = calculate_distance_to_point_source(protons, source_alt=source_alt, source_az=source_az).to(u.deg).value
 
     if multiplicity > 2:
         gammas = gammas.query(f'num_triggered_telescopes >= {multiplicity}')
@@ -269,7 +275,6 @@ def main(gamma_input, proton_input, output, multiplicity, t_obs, color, referenc
         label = 'This Analysis'
 
     rs_mult_extrapolate = calc_relative_sensitivity(gammas, protons, bin_edges, method='extrapolate', alpha=0.2)
-    # rs_mult_extrapolate.to_csv('sensi.csv', index=False)
 
     ax = plot_sensitivity(rs_mult_extrapolate, bin_edges, bin_center, color=color, label=label)
 
@@ -286,7 +291,7 @@ def main(gamma_input, proton_input, output, multiplicity, t_obs, color, referenc
     ax.set_ylabel(r'$ E^2 \cdot \quad \mathrm{erg} /( \mathrm{s} \quad  \mathrm{cm}^2$)')
     ax.set_xlabel(r'$E_{Reco} /  \mathrm{TeV}$')
     ax.legend()
-    plt.title('Point source sensitivity (Prod3b, HB89, Paranal) in ' + str(t_obs.to('h')))
+    plt.title('Point source sensitivity (Prod3b, HB9, Paranal) in ' + str(t_obs.to('h')))
 
     if output:
         plt.savefig(output)
@@ -295,4 +300,5 @@ def main(gamma_input, proton_input, output, multiplicity, t_obs, color, referenc
 
 
 if __name__ == '__main__':
+    # pylint: disable=no-value-for-parameter
     main()

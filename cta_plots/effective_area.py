@@ -3,10 +3,10 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from astropy.stats import binom_conf_interval
-import fact.io
+import astropy.units as u
+
 from . import make_energy_bins, load_effective_area_requirement
 from .spectrum import MCSpectrum
-import astropy.units as u
 from .colors import color_cycle
 
 

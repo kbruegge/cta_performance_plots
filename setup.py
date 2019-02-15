@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='cta_plots',
-    version='0.0.1',
+    version='0.0.2',
     description='A collection of plotting scrtipts for CTA',
     url='https://github.com/mackaiver/cta_performance_plots',
     author='Kai Brügge',
@@ -47,6 +47,7 @@ setup(
             'cta_plot_auc_vs_energy = cta_plots.ml.auc_vs_energy:main',
             'cta_plot_prediction_hist = cta_plots.ml.prediction_hist:main',
             'cta_plot_importances = cta_plots.ml.importances:main',
+            'cta_plot_theta_square = cta_plots.theta_squared:main',
         ],
     }
 )
