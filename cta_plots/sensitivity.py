@@ -16,9 +16,27 @@ from scipy.optimize import minimize_scalar
 from tqdm import tqdm
 from . import load_sensitivity_reference, load_sensitivity_requirement
 from .coordinate_utils import calculate_distance_to_true_source_position, calculate_distance_to_point_source
+from colorama import Fore
 
 crab = CrabSpectrum()
 cosmic_proton = CosmicRaySpectrum()
+
+def calculate_n_signal(gammas, theta_square_cut, prediction_threshold):
+    gammas_gammalike = gammas.query(f'(gamma_prediction_mean >= {prediction_threshold}) & (theta <= {np.sqrt(theta_square_cut)})')
+    n_on = gammas_gammalike.weight.sum()
+    t_on = len(gammas_gammalike)
+    return n_on, t_on
+
+def calculate_n_off(protons, theta_square_cut, prediction_threshold):
+    protons_gammalike = protons.query(f'gamma_prediction_mean >= {prediction_threshold}')
+
+    off_bins = np.arange(0, 0.6, theta_square_cut)
+    h, _ = np.histogram(protons_gammalike['theta']**2, bins=off_bins, weights=protons_gammalike.weight)
+    n_off = h.mean()
+
+    ht, _ = np.histogram(protons_gammalike['theta']**2, bins=off_bins)
+    t_off = ht.mean()
+    return n_off, t_off
 
 
 def count_events_in_region(df, theta2=0.03, prediction_threshold=0.5):
@@ -29,7 +47,8 @@ def count_events_in_region(df, theta2=0.03, prediction_threshold=0.5):
 def extrapolate_off_events(df, theta2=0.03, prediction_threshold=0.5, sigma=1):
     if prediction_threshold > 1:
         return 0
-    df = df.query('theta < 1.0')
+
+    df = df.query('theta**2 < 0.5')
 
     c_bins = np.linspace(0, 1, 30)
     c_bin_center = (c_bins[0:-1] + c_bins[1:]) / 2
@@ -41,7 +60,6 @@ def extrapolate_off_events(df, theta2=0.03, prediction_threshold=0.5, sigma=1):
     h = np.sum(h) - np.cumsum(h)
     background = interp1d(nodes, h, kind=1, fill_value='extrapolate', bounds_error=False)
 
-
     h, _ = np.histogram(df.gamma_prediction_mean, bins=c_bins)
     h = gaussian_filter(h, sigma=sigma)
     h = np.sum(h) - np.cumsum(h)
@@ -52,7 +70,7 @@ def extrapolate_off_events(df, theta2=0.03, prediction_threshold=0.5, sigma=1):
 
 
 def count_off_events_in_region(df, theta2=0.03, prediction_threshold=0.5):
-    df = df.query('theta < 1.0')
+    df = df.query('theta**2 < 0.50')
     m = df.gamma_prediction_mean >= prediction_threshold
     return df[m].weight.sum() * theta2, m.sum() * theta2
 
@@ -95,7 +113,7 @@ def scaling_factor(n_signal, n_background, t_signal, t_background, alpha=1, N=20
     return np.nanpercentile(np.array(hs), (50, 5, 95))
 
 
-def find_best_cuts(signal, background, alpha, regions=slice(0.0025, 0.08, 0.01), thresholds=slice(0.4, 1, 0.05), method='simple'):
+def find_best_cuts(signal, background, alpha, regions=slice(0.01, 0.4, 0.01), thresholds=slice(0.2, 1, 0.05), method='simple'):
 
     def significance_target(cuts, signal, background, alpha):
         theta2, p_cut = cuts
@@ -116,22 +134,25 @@ def find_best_cuts(signal, background, alpha, regions=slice(0.0025, 0.08, 0.01),
                 return 0
 
         elif method == 'extrapolate':
-            n_background, t_background = extrapolate_off_events(background, theta2=theta2/alpha, prediction_threshold=p_cut)
+            n_background, t_background = extrapolate_off_events(background, theta2=theta2 / alpha, prediction_threshold=p_cut)
+        
+        elif method == 'histogram':
+            n_background, t_background = calculate_n_off(background, theta_square_cut=theta2 / alpha, prediction_threshold=p_cut)
 
+        stop = False
+        if t_background < 10:
+            print(f'{cuts} not enough background')
+            stop=True
 
-#         if t_background/alpha < 1:
-#             print(f'{cuts} not enough background')
-#             return 0
         if t_signal <= t_background * alpha + 10:
-            # print('counts not large enough')
-            return 0
+            print(f'counts not large enough: {cuts}')
+            stop=True
 
-
-        if t_signal <= t_background * alpha + 10:
-            # print('signal not large enough')
-            return 0
         if n_signal*5 < n_background * 0.01:
-            # print('sys problem')
+            print('sys problem')
+            stop=True
+        
+        if stop:
             return 0
 
 
@@ -160,7 +181,10 @@ def calc_relative_sensitivity(signal, background, bin_edges, alpha=1, use_true_e
         elif method == 'exact':
             n_background, t_background = count_events_in_region(b, theta2=theta2 / alpha, prediction_threshold=cut)
         elif method == 'extrapolate':
-            n_background, t_background = extrapolate_off_events(b, theta2=theta2 / alpha, prediction_threshold=cut)
+            n_background, t_background = extrapolate_off_events(b, theta2=theta2 / alpha, prediction_threshold=cut)        
+        elif method == 'histogram':
+            n_background, t_background = calculate_n_off(b, theta_square_cut=theta2 / alpha, prediction_threshold=cut)
+
 
         print(t_background, t_signal)
         rs = scaling_factor(n_signal, n_background, t_signal, t_background, alpha=alpha)
@@ -247,7 +271,8 @@ def plot_refrence(ax=None):
 @click.option('--reference/--no-reference', default=False)
 @click.option('--requirement/--no-requirement', default=False)
 @click.option('--flux/--no-flux', default=True)
-def main(gamma_input, proton_input, output, multiplicity, t_obs, color, reference, requirement, flux):
+@click.option('--method', default=['extrapolate'], type=click.Choice(['extrapolate', 'histogram', 'simple', 'exact']))
+def main(gamma_input, proton_input, output, multiplicity, t_obs, color, reference, requirement, flux, method):
     t_obs *= u.h
 
     n_bins = 20
@@ -274,7 +299,7 @@ def main(gamma_input, proton_input, output, multiplicity, t_obs, color, referenc
     else:
         label = 'This Analysis'
 
-    rs_mult_extrapolate = calc_relative_sensitivity(gammas, protons, bin_edges, method='extrapolate', alpha=0.2)
+    rs_mult_extrapolate = calc_relative_sensitivity(gammas, protons, bin_edges, method=method, alpha=0.2)
 
     ax = plot_sensitivity(rs_mult_extrapolate, bin_edges, bin_center, color=color, label=label)
 

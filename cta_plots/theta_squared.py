@@ -19,7 +19,8 @@ import matplotlib.offsetbox as offsetbox
 @click.argument('gammas_dl3', type=click.Path(exists=True))
 @click.argument('protons_dl3', type=click.Path(exists=True))
 @click.option('-o', '--output', type=click.Path(exists=False))
-def main(gammas_dl3, protons_dl3, output):
+@click.option('-j', '--n_jobs', default=-4)
+def main(gammas_dl3, protons_dl3, output, n_jobs):
 
     t_obs = 5 * u.min
 
@@ -53,7 +54,8 @@ def main(gammas_dl3, protons_dl3, output):
     prediction_cuts = np.arange(0.0, 1, 0.05)  
     iterator = tqdm(product(theta_square_cuts, prediction_cuts), total=len(theta_square_cuts) * len(prediction_cuts))
 
-    rs = Parallel(n_jobs=-4, pre_dispatch='3*n_jobs')(delayed(calculate_significance)(gammas, protons, t, p) for t, p in iterator)
+
+    rs = Parallel(n_jobs=n_jobs, verbose=1, prefer='processes',  batch_size=40)(delayed(calculate_significance)(gammas, protons, t, p) for t, p in iterator)
     max_index = np.argmax([r[0] for r in rs])
     best_significance, best_theta_square_cut, best_prediction_cut = rs[max_index]
     
@@ -107,15 +109,18 @@ def main(gammas_dl3, protons_dl3, output):
     else:
         plt.show()
 
-def calculate_significance(gammas, protons, theta_square_cut, prediction_cut):
-    gammas_gammalike = gammas.query(f'gamma_prediction_mean >= {prediction_cut}').copy()
-    protons_gammalike = protons.query(f'gamma_prediction_mean >= {prediction_cut}').copy()
-    off_bins = np.arange(0, 0.5, np.sqrt(theta_square_cut))
+def calculate_n_on_n_off(gammas, protons, theta_square_cut, prediction_cut):
+    gammas_gammalike = gammas.query(f'gamma_prediction_mean >= {prediction_cut}')
+    protons_gammalike = protons.query(f'gamma_prediction_mean >= {prediction_cut}')
+
+    off_bins = np.arange(0, 0.6, theta_square_cut)
     h, _ = np.histogram(protons_gammalike['theta']**2, bins=off_bins, weights=protons_gammalike.weight)
     n_off = h.mean()
-
     n_on = gammas_gammalike.query(f'theta <= {np.sqrt(theta_square_cut)}').weight.sum() + n_off
+    return n_on, n_off
 
+def calculate_significance(gammas, protons, theta_square_cut, prediction_cut):
+    n_on, n_off = calculate_n_on_n_off(gammas, protons, theta_square_cut, prediction_cut)
     return li_ma_significance(n_on, n_off, alpha=1), theta_square_cut, prediction_cut
 
 
