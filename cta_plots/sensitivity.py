@@ -89,12 +89,12 @@ def select_events_in_energy_range(signal, background, e_low, e_high, use_true_en
 def scaling_factor(n_signal, n_background, t_signal, t_background, alpha=1, N=200):
     right_bound = 100
 
-    def target(scaling_factor, n_signal, n_background, alpha=1, sigma=5):
+    def target(scaling_factor, n_signal, n_background, alpha=0.2, sigma=5):
         n_on = n_background * alpha + n_signal * scaling_factor
         n_off = n_background
 
         significance = li_ma_significance(n_on, n_off, alpha=alpha)
-        return (5 - significance)**2
+        return (sigma - significance)**2
 
 #     print(t_background, n_background, '---------', t_signal, n_signal)
     n_signal = np.random.poisson(t_signal, size=N) * n_signal / t_signal
@@ -118,34 +118,34 @@ def find_best_cuts(signal, background, alpha, regions=slice(0.01, 0.4, 0.01), th
     def significance_target(cuts, signal, background, alpha):
         theta2, p_cut = cuts
         n_signal, t_signal = count_events_in_region(signal, theta2=theta2, prediction_threshold=p_cut)
-
+        stop = False
+        
         if method == 'exact':
             n_background, t_background = count_events_in_region(background, theta2=theta2 / alpha, prediction_threshold=p_cut)
 
             if t_background < 10:
                 print(f'{cuts} not enough background')
-                return 0
+                stop = True
 
         elif method == 'simple':
             n_background, t_background = count_off_events_in_region(background, theta2=theta2 / alpha, prediction_threshold=p_cut)
 
             if t_background / alpha < 10:
                 print(f'{cuts} not enough background')
-                return 0
+                stop = True
 
         elif method == 'extrapolate':
             n_background, t_background = extrapolate_off_events(background, theta2=theta2 / alpha, prediction_threshold=p_cut)
         
         elif method == 'histogram':
             n_background, t_background = calculate_n_off(background, theta_square_cut=theta2 / alpha, prediction_threshold=p_cut)
+            if t_background / alpha < 5:
+                print(f'{cuts} not enough background')
+                stop = True
 
-        stop = False
-        if t_background < 10:
-            print(f'{cuts} not enough background')
-            stop=True
 
         if t_signal <= t_background * alpha + 10:
-            print(f'counts not large enough: {cuts}')
+            print(f'counts not large enough compared to bkg: {cuts}')
             stop=True
 
         if n_signal*5 < n_background * 0.01:
@@ -169,7 +169,7 @@ def calc_relative_sensitivity(signal, background, bin_edges, alpha=1, use_true_e
     relative_sensitivities = []
     thresholds = []
     thetas = []
-    for e_low, e_high in tqdm(zip(bin_edges[:-1], bin_edges[1:])):
+    for e_low, e_high in tqdm(zip(bin_edges[:-1], bin_edges[1:]), total=len(bin_edges) - 1):
         s, b = select_events_in_energy_range(signal, background, e_low, e_high, use_true_energy=use_true_energy)
 
         theta2, cut = find_best_cuts(s, b, alpha=alpha, method=method)
@@ -271,7 +271,7 @@ def plot_refrence(ax=None):
 @click.option('--reference/--no-reference', default=False)
 @click.option('--requirement/--no-requirement', default=False)
 @click.option('--flux/--no-flux', default=True)
-@click.option('--method', default=['extrapolate'], type=click.Choice(['extrapolate', 'histogram', 'simple', 'exact']))
+@click.option('--method', default='extrapolate', type=click.Choice(['extrapolate', 'histogram', 'simple', 'exact']))
 def main(gamma_input, proton_input, output, multiplicity, t_obs, color, reference, requirement, flux, method):
     t_obs *= u.h
 
