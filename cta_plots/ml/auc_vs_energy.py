@@ -10,7 +10,10 @@ import astropy.units as u
 
 import fact.io
 
-columns = ['array_event_id', 'gamma_prediction', 'telescope_type_name', 'run_id']
+columns = ['array_event_id', 'gamma_prediction', 'telescope_type_id', 'run_id']
+
+id_to_name = {1: 'LST', 2: 'MST', 3: 'SST'}
+name_to_id = {'LST': 1, 'MST': 2, 'SST': 3}
 
 
 @click.command()
@@ -49,11 +52,11 @@ def main(predicted_gammas, predicted_protons, output, n_bins, sample):
         aucs = []
         for b in tqdm(gammas.energy_bin.cat.categories):
 
-            tel_gammas = gammas[(gammas.energy_bin == b) & (gammas.telescope_type_name == tel_type)]
+            tel_gammas = gammas[(gammas.energy_bin == b) & (gammas.telescope_type_id == name_to_id[tel_type])]
             if sample:
-                tel_protons = protons[protons.telescope_type_name == tel_type]
+                tel_protons = protons[protons.telescope_type_id == name_to_id[tel_type]]
             else:
-                tel_protons = protons[(protons.energy_bin == b) & (protons.telescope_type_name == tel_type)]
+                tel_protons = protons[(protons.energy_bin == b) & (protons.telescope_type_id == name_to_id[tel_type])]
 
             if len(tel_gammas) < 30 or len(tel_protons) < 30:
                 aucs.append(np.nan)
@@ -82,7 +85,7 @@ def main(predicted_gammas, predicted_protons, output, n_bins, sample):
             color=telescope_color[tel_type],
         )
 
-    plt.ylim([0.93, 1])
+    # plt.ylim([0.93, 1])
     plt.xscale('log')
     plt.xlabel(r'$E_{True} / TeV$')
     plt.ylabel('Area Under RoC Curve')

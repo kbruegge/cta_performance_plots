@@ -7,6 +7,9 @@ import fact.io
 from ..colors import telescope_color
 
 
+id_to_name = {1: 'LST', 2: 'MST', 3: 'SST'}
+name_to_id = {'LST': 1, 'MST': 2, 'SST': 3}
+
 def add_rectangles(ax, offset=0.1):
 
     kwargs = {
@@ -55,14 +58,14 @@ def add_rectangles(ax, offset=0.1):
     ))
 @click.option('--box/--no-box', default=True)
 def main(predicted_gammas, predicted_protons, what, output, box):
-    cols = ['gamma_prediction', 'array_event_id', 'run_id', 'telescope_type_name']
+    cols = ['gamma_prediction', 'array_event_id', 'run_id', 'telescope_type_id']
 
     gammas = fact.io.read_data(predicted_gammas, key='telescope_events', columns=cols).dropna()
     protons = fact.io.read_data(predicted_protons, key='telescope_events', columns=cols).dropna()
-
+    
     for tel_type in ['LST', 'MST', 'SST']:
-        tel_gammas = gammas.query(f'telescope_type_name == "{tel_type}"')
-        tel_protons = protons.query(f'telescope_type_name == "{tel_type}"')
+        tel_gammas = gammas.query(f'telescope_type_id == "{name_to_id[tel_type]}"')
+        tel_protons = protons.query(f'telescope_type_id == "{name_to_id[tel_type]}"')
         if what == 'mean':
             prediction_gammas = tel_gammas.groupby(['array_event_id', 'run_id'])['gamma_prediction'].mean()
             prediction_protons = tel_protons.groupby(['array_event_id', 'run_id'])['gamma_prediction'].mean()

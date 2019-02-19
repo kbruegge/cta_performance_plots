@@ -5,9 +5,9 @@ import numpy as np
 import astropy.units as u
 from scipy.stats import binned_statistic
 import fact.io
-from . import make_energy_bins, load_energy_resolution_requirement
+from cta_plots import make_energy_bins, load_energy_resolution_requirement
 from matplotlib.colors import PowerNorm
-from .colors import default_cmap, main_color
+from cta_plots.colors import default_cmap, main_color
 
 
 @click.command()

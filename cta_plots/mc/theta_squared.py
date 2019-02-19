@@ -5,31 +5,34 @@ import astropy.units as u
 import pandas as pd
 from fact.analysis import li_ma_significance
 from scipy.optimize import brute
-from .coordinate_utils import calculate_distance_to_true_source_position, calculate_distance_to_point_source
-from .spectrum import MCSpectrum, CrabSpectrum, CosmicRaySpectrum
+from cta_plots.coordinate_utils import calculate_distance_to_true_source_position, calculate_distance_to_point_source
+from cta_plots.mc.spectrum import MCSpectrum, CrabSpectrum, CosmicRaySpectrum, CTAElectronSpectrum
 from tqdm import tqdm
 from itertools import product
 from colorama import Fore
 from joblib import Parallel, delayed
 import matplotlib.offsetbox as offsetbox
+from fact.io import read_data
 
-
+ELECTRON_TYPE = 1
+PROTON_TYPE = 0
 
 @click.command()
 @click.argument('gammas_dl3', type=click.Path(exists=True))
 @click.argument('protons_dl3', type=click.Path(exists=True))
+@click.option('-e', '--electrons_path', type=click.Path(exists=True, dir_okay=False))
 @click.option('-o', '--output', type=click.Path(exists=False))
 @click.option('-j', '--n_jobs', default=-4)
-def main(gammas_dl3, protons_dl3, output, n_jobs):
+def main(gammas_dl3, protons_dl3, electrons_path, output, n_jobs):
 
     t_obs = 5 * u.min
 
-    gammas = pd.read_hdf(gammas_dl3, key='array_events')
-
-    gamma_runs = pd.read_hdf(gammas_dl3, key='runs')
+    gammas = read_data(gammas_dl3, key='array_events')
+    gamma_runs = read_data(gammas_dl3, key='runs')
     mc_production_gamma = MCSpectrum.from_cta_runs(gamma_runs)
 
-    protons = pd.read_hdf(protons_dl3, key='array_events')
+    protons = read_data(protons_dl3, key='array_events')
+
     if (gamma_runs.mc_diffuse == 1).any():
         print(Fore.RED + 'Need point-like gammas to do theta square plot')
         print(Fore.RESET)
@@ -41,7 +44,8 @@ def main(gammas_dl3, protons_dl3, output, n_jobs):
     gammas['theta'] = calculate_distance_to_point_source(gammas, source_alt=source_alt, source_az=source_az).to(u.deg).value
     protons['theta'] = calculate_distance_to_point_source(protons, source_alt=source_alt, source_az=source_az).to(u.deg).value
 
-    proton_runs = pd.read_hdf(protons_dl3, key='runs')
+
+    proton_runs = read_data(protons_dl3, key='runs')
     mc_production_proton = MCSpectrum.from_cta_runs(proton_runs)
 
     crab = CrabSpectrum()
@@ -49,22 +53,40 @@ def main(gammas_dl3, protons_dl3, output, n_jobs):
 
     gammas['weight'] = mc_production_gamma.reweigh_to_other_spectrum(crab, gammas.mc_energy.values * u.TeV, t_assumed_obs=t_obs)
     protons['weight'] = mc_production_proton.reweigh_to_other_spectrum(cosmic, protons.mc_energy.values * u.TeV, t_assumed_obs=t_obs)
+    protons['type'] = PROTON_TYPE
+    if electrons_path:
+        electron_spectrum = CTAElectronSpectrum()
+        electron_runs = read_data(electrons_path, key='runs')
+        mc_production_electrons = MCSpectrum.from_cta_runs(electron_runs)
+        electrons = read_data(electrons_path, key='array_events')
+        electrons['weight'] = mc_production_electrons.reweigh_to_other_spectrum(electron_spectrum, electrons.mc_energy.values * u.TeV, t_assumed_obs=t_obs)
+        electrons['theta'] = calculate_distance_to_point_source(electrons, source_alt=source_alt, source_az=source_az).to(u.deg).value
+        electrons['type'] = ELECTRON_TYPE
 
-    theta_square_cuts = np.arange(0.01, 0.35, 0.01)
-    prediction_cuts = np.arange(0.0, 1, 0.05)  
+        background = pd.concat([protons, electrons], sort=False)
+    else:
+        background = protons
+
+    theta_square_cuts = np.arange(0.01, 0.35, 0.02)
+    prediction_cuts = np.arange(0.4, 1, 0.05) 
+
+    background = background.query('gamma_energy_prediction_mean <= 0.05')
+    gammas = gammas.query('gamma_energy_prediction_mean <= 0.05')
+
     iterator = tqdm(product(theta_square_cuts, prediction_cuts), total=len(theta_square_cuts) * len(prediction_cuts))
 
-
-    rs = Parallel(n_jobs=n_jobs, verbose=1, prefer='processes',  batch_size=40)(delayed(calculate_significance)(gammas, protons, t, p) for t, p in iterator)
+    if n_jobs != 1:
+        rs = Parallel(n_jobs=n_jobs, verbose=1, prefer='processes',  batch_size=40)(delayed(calculate_significance)(gammas, background, t, p) for t, p in iterator)
+    else:
+        rs = [calculate_significance(gammas, background, t, p) for t, p in iterator]
     max_index = np.argmax([r[0] for r in rs])
     best_significance, best_theta_square_cut, best_prediction_cut = rs[max_index]
     
     gammas_gammalike = gammas.query(f'gamma_prediction_mean > {best_prediction_cut}').copy()
-    protons_gammalike = protons.query(f'gamma_prediction_mean > {best_prediction_cut}').copy()
-
-    
+    background_gammalike = background.query(f'gamma_prediction_mean > {best_prediction_cut}').copy()   
     on = gammas_gammalike
-    off = protons_gammalike
+    off = background_gammalike
+    
 
     bins = np.arange(0, 0.6, 0.01)
     h_off, _ = np.histogram(off['theta']**2, bins=bins, weights=off.weight)
@@ -74,7 +96,13 @@ def main(gammas_dl3, protons_dl3, output, n_jobs):
     ax = fig.add_subplot(111)
 
     ax.step(bins[:-1], h_on + h_off.mean(), where='post', label='on events')
-    ax.step(bins[:-1], h_off, where='post', label='off events')
+    ax.step(bins[:-1], h_off, where='post', label='off events protons')
+    
+    if electrons_path:
+        off_electrons = off.query(f'type == {ELECTRON_TYPE}')
+        h_off_electrons, _ = np.histogram(off_electrons['theta']**2, bins=bins, weights=off_electrons.weight)
+        ax.step(bins[:-1], h_off_electrons, where='post', label='off events electrons')
+
     ax.set_ylim([0, max(h_on + h_off) * 1.18])
     ax.axhline(y=h_off.mean(), color='C1', lw=1, alpha=0.7)
     ax.axvline(x=best_theta_square_cut, color='gray', lw=1, alpha=0.7)

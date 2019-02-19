@@ -1,7 +1,7 @@
 import astropy.units as u
-from .spectrum import CosmicRaySpectrum, CrabSpectrum, MCSpectrum
-from . import make_energy_bins
-import fact.io
+from cta_plots.mc.spectrum import CosmicRaySpectrum, CrabSpectrum, MCSpectrum, CTAElectronSpectrum
+from cta_plots import make_energy_bins
+from fact.io import read_data
 import click
 
 from scipy.ndimage import gaussian_filter
@@ -14,12 +14,13 @@ from fact.analysis import li_ma_significance
 from scipy.optimize import brute
 from scipy.optimize import minimize_scalar
 from tqdm import tqdm
-from . import load_sensitivity_reference, load_sensitivity_requirement
-from .coordinate_utils import calculate_distance_to_true_source_position, calculate_distance_to_point_source
+from cta_plots import load_sensitivity_reference, load_sensitivity_requirement
+from cta_plots.coordinate_utils import calculate_distance_to_true_source_position, calculate_distance_to_point_source
 from colorama import Fore
 
 crab = CrabSpectrum()
 cosmic_proton = CosmicRaySpectrum()
+cta_electron_spectrum = CTAElectronSpectrum()
 
 def calculate_n_signal(gammas, theta_square_cut, prediction_threshold):
     gammas_gammalike = gammas.query(f'(gamma_prediction_mean >= {prediction_threshold}) & (theta <= {np.sqrt(theta_square_cut)})')
@@ -199,23 +200,35 @@ def calc_relative_sensitivity(signal, background, bin_edges, alpha=1, use_true_e
     return pd.DataFrame(d)
 
 
-def load_data(gamma_input, proton_input, t_obs=50 * u.h):
+def load_data(gamma_input, proton_input, electron_input,  t_obs=50 * u.h):
     columns = ['gamma_prediction_mean', 'gamma_energy_prediction_mean', 'az', 'alt', 'mc_alt', 'mc_az', 'mc_energy', 'num_triggered_telescopes']
 
-    gammas = fact.io.read_data(gamma_input, key='array_events', columns=columns)
+    gammas = read_data(gamma_input, key='array_events', columns=columns)
     gammas = gammas.dropna()
-    gamma_runs = fact.io.read_data(gamma_input, key='runs')
+    gamma_runs = read_data(gamma_input, key='runs')
     mc_production_gamma = MCSpectrum.from_cta_runs(gamma_runs)
 
-    protons = fact.io.read_data(proton_input, key='array_events', columns=columns)
+    if (gamma_runs.mc_diffuse == 1).any():
+        print(Fore.RED + 'Need point-like gammas to calculate sensitivity')
+        print(Fore.RESET)
+        raise ValueError
+
+    protons =read_data(proton_input, key='array_events', columns=columns)
     protons = protons.dropna()
-    proton_runs = fact.io.read_data(proton_input, key='runs')
+    proton_runs = read_data(proton_input, key='runs')
     mc_production_proton = MCSpectrum.from_cta_runs(proton_runs)
+
+    electrons = read_data(electron_input, key='array_events', columns=columns)
+    electrons = electrons.dropna()
+    electron_runs = read_data(electron_input, key='runs')
+    mc_production_electrons = MCSpectrum.from_cta_runs(electron_runs)
 
     gammas['weight'] = mc_production_gamma.reweigh_to_other_spectrum(crab, gammas.mc_energy.values * u.TeV, t_assumed_obs=t_obs)
     protons['weight'] = mc_production_proton.reweigh_to_other_spectrum(cosmic_proton, protons.mc_energy.values * u.TeV, t_assumed_obs=t_obs)
+    electrons['weight'] = mc_production_electrons.reweigh_to_other_spectrum(cta_electron_spectrum, electrons.mc_energy.values * u.TeV, t_assumed_obs=t_obs)
 
-    return gammas, protons
+    background =  pd.concat([protons, electrons], sort=False)
+    return gammas, background
 
 
 def plot_sensitivity(rs, bin_edges, bin_center, color='blue', ax=None, **kwargs):
@@ -264,6 +277,7 @@ def plot_refrence(ax=None):
 @click.command()
 @click.argument('gamma_input', type=click.Path(exists=True))
 @click.argument('proton_input', type=click.Path(exists=True))
+@click.argument('electron_input', type=click.Path(exists=True))
 @click.option('-o', '--output', type=click.Path(exists=False))
 @click.option('-m', '--multiplicity', default=2)
 @click.option('-t', '--t_obs', default=50)
@@ -272,34 +286,29 @@ def plot_refrence(ax=None):
 @click.option('--requirement/--no-requirement', default=False)
 @click.option('--flux/--no-flux', default=True)
 @click.option('--method', default='extrapolate', type=click.Choice(['extrapolate', 'histogram', 'simple', 'exact']))
-def main(gamma_input, proton_input, output, multiplicity, t_obs, color, reference, requirement, flux, method):
+def main(gamma_input, proton_input, electron_input, output, multiplicity, t_obs, color, reference, requirement, flux, method):
     t_obs *= u.h
 
     n_bins = 20
     e_min, e_max = 0.02 * u.TeV, 200 * u.TeV
     bin_edges, bin_center, bin_width = make_energy_bins(e_min=e_min, e_max=e_max, bins=n_bins, centering='log')
 
-    gammas, protons = load_data(gamma_input, proton_input, t_obs=t_obs)
-    gamma_runs = pd.read_hdf(gamma_input, key='runs')
-    if (gamma_runs.mc_diffuse == 1).any():
-        print(Fore.RED + 'Need point-like gammas to do theta square plot')
-        print(Fore.RESET)
-        return -1
+    gammas, background = load_data(gamma_input, proton_input, electron_input,  t_obs=t_obs)
 
     source_az = gammas.mc_az.iloc[0] * u.deg
     source_alt = gammas.mc_alt.iloc[0] * u.deg
 
     gammas['theta'] = calculate_distance_to_point_source(gammas, source_alt=source_alt, source_az=source_az).to(u.deg).value
-    protons['theta'] = calculate_distance_to_point_source(protons, source_alt=source_alt, source_az=source_az).to(u.deg).value
+    background['theta'] = calculate_distance_to_point_source(background, source_alt=source_alt, source_az=source_az).to(u.deg).value
 
     if multiplicity > 2:
         gammas = gammas.query(f'num_triggered_telescopes >= {multiplicity}')
-        protons = protons.query(f'num_triggered_telescopes >= {multiplicity}')
+        background = background.query(f'num_triggered_telescopes >= {multiplicity}')
         label = f'This Analysis. Multiplicity > {multiplicity}'
     else:
         label = 'This Analysis'
 
-    rs_mult_extrapolate = calc_relative_sensitivity(gammas, protons, bin_edges, method=method, alpha=0.2)
+    rs_mult_extrapolate = calc_relative_sensitivity(gammas, background, bin_edges, method=method, alpha=0.2)
 
     ax = plot_sensitivity(rs_mult_extrapolate, bin_edges, bin_center, color=color, label=label)
 

@@ -5,9 +5,10 @@ import pandas as pd
 from astropy.stats import binom_conf_interval
 import astropy.units as u
 
-from . import make_energy_bins, load_effective_area_requirement
-from .spectrum import MCSpectrum
-from .colors import color_cycle
+from cta_plots import make_energy_bins, load_effective_area_requirement
+from cta_plots.mc.spectrum import MCSpectrum
+from cta_plots.colors import color_cycle
+from fact.io import read_data
 
 
 @click.command()
@@ -22,11 +23,11 @@ def main(input_file, label, output, n_bins, multiplicity, threshold, reference):
 
     bins, bin_center, bin_widths = make_energy_bins(e_min=0.008 * u.TeV, e_max=200 * u.TeV, bins=n_bins)
 
-    gammas_complete = pd.read_hdf(input_file, key='array_events')
+    gammas_complete = read_data(input_file, key='array_events')
     if multiplicity > 2:
         gammas_complete = gammas_complete.query(f'num_triggered_telescopes >= {multiplicity}').copy()
 
-    runs = pd.read_hdf(input_file, key='runs')
+    runs = read_data(input_file, key='runs')
     mc_production = MCSpectrum.from_cta_runs(runs)
 
     if not label:

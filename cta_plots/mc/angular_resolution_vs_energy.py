@@ -5,12 +5,14 @@ import pandas as pd
 import astropy.units as u
 from astropy.coordinates import Angle
 from scipy.stats import binned_statistic
-from . import make_energy_bins
-from . import load_angular_resolution_requirement
+from cta_plots import make_energy_bins
+from cta_plots import load_angular_resolution_requirement
 from matplotlib.colors import PowerNorm
 from astropy.coordinates.angle_utilities import angular_separation
-from .colors import default_cmap, main_color, main_color_complement
-from .coordinate_utils import calculate_distance_to_true_source_position
+from cta_plots.colors import default_cmap, main_color, main_color_complement
+from cta_plots.coordinate_utils import calculate_distance_to_true_source_position
+from fact.io import read_data
+
 
 @click.command()
 @click.argument('input_dl3_file', type=click.Path(exists=True))
@@ -29,7 +31,7 @@ def main(input_dl3_file, output, threshold, reference, complementary, multiplici
     if multiplicity > 2:
         columns.append('num_triggered_telescopes')
 
-    df = pd.read_hdf(input_dl3_file, key='array_events', columns=columns).dropna()
+    df = read_data(input_dl3_file, key='array_events', columns=columns).dropna()
 
     if threshold > 0:
         df = df.query(f'gamma_prediction_mean > {threshold}').copy()
