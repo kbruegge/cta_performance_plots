@@ -7,9 +7,7 @@ from fact.analysis import li_ma_significance
 import pandas as pd
 import numpy as np
 from tqdm import tqdm
-from itertools import product
 from colorama import Fore
-from joblib import Parallel, delayed
 
 ELECTRON_TYPE = 1
 PROTON_TYPE = 0
@@ -103,39 +101,82 @@ def load_background_events(protons_path, electrons_path,  source_alt, source_az,
     return pd.concat([protons, electrons], sort=False)
 
 
-def find_best_detection_significance(theta_square_cuts, prediction_cuts, n_jobs, signal_events, background_events, silent=False):
-    iterator = tqdm(
-        product(theta_square_cuts, prediction_cuts),
-        total=len(theta_square_cuts) * len(prediction_cuts),
-        disable=silent,
-    )
+def find_best_detection_significance(theta_square_cuts, prediction_cuts, signal_events, background_events, alpha=1, silent=False):
 
-    if n_jobs != 1:
-        rs = Parallel(n_jobs=n_jobs, verbose=1, prefer='processes', batch_size=40)(
-            delayed(calculate_significance)(signal_events, background_events, t, p) for t, p in iterator
-        )
-    else:
-        rs = [calculate_significance(signal_events, background_events, t, p) for t, p in iterator]
+    MAX_THETA_SQUARE_CUT = 0.6
+
+    m = (signal_events.theta <= np.sqrt(MAX_THETA_SQUARE_CUT)) & (signal_events.gamma_prediction_mean >= prediction_cuts.min())
+    signal_events = signal_events.copy()[m]
+    m = (background_events.theta <= np.sqrt(MAX_THETA_SQUARE_CUT)) & (background_events.gamma_prediction_mean >= prediction_cuts.min())
+    background_events = background_events.copy()[m]
+
+    rs = []
+    for pc in tqdm(prediction_cuts, disable=silent):
+        m = (signal_events.gamma_prediction_mean >= pc)
+        selected_signal = signal_events[m]
+        m = (background_events.gamma_prediction_mean >= pc)
+        selected_background = background_events[m]
+        for tc in tqdm(theta_square_cuts, disable=silent):
+            significance = calculate_significance(selected_signal, selected_background, tc, alpha=alpha)
+            rs.append([significance, tc, pc])
     
+
     max_index = np.argmax([r[0] for r in rs])
     best_significance, best_theta_square_cut, best_prediction_cut = rs[max_index]
 
     return best_prediction_cut, best_theta_square_cut, best_significance
 
 
-def calculate_n_on_n_off(signal_events, background_events, theta_square_cut, prediction_cut):
-    signal_gammalike = signal_events.query(f'gamma_prediction_mean >= {prediction_cut}')
-    bkg_gammalike = background_events.query(f'gamma_prediction_mean >= {prediction_cut}')
+def calculate_n_signal(signal_events, theta_square_cut, return_unweighted=False):
+    n_signal =  signal_events[signal_events.theta <= np.sqrt(theta_square_cut)].weight.sum()
+    
+    if return_unweighted:
+        counts = len(signal_events[signal_events.theta <= np.sqrt(theta_square_cut)])
+        return n_signal, counts
+    
+    return n_signal
 
-    off_bins = np.arange(0, 0.6, theta_square_cut)
-    h, _ = np.histogram(
-        bkg_gammalike['theta'] ** 2, bins=off_bins, weights=bkg_gammalike.weight
-    )
-    n_off = h.mean()
-    n_on = signal_gammalike.query(f'theta <= {np.sqrt(theta_square_cut)}').weight.sum() + n_off
+def calculate_n_on_n_off(signal_events, background_events, theta_square_cut, alpha=1):
+    n_off = calculate_n_off(background_events, theta_square_cut, alpha=alpha)
+    n_signal = calculate_n_signal(signal_events, theta_square_cut)
+    
+    n_on = n_signal + alpha*n_off
+
     return n_on, n_off
 
+def calculate_n_off(background_events, theta_square_cut, alpha=1, return_unweighted=False):
+    off_bins = np.arange(0, 0.6, theta_square_cut / alpha)
 
-def calculate_significance(signal_events, background_events, theta_square_cut, prediction_cut):
-    n_on, n_off = calculate_n_on_n_off(signal_events, background_events, theta_square_cut, prediction_cut)
-    return li_ma_significance(n_on, n_off, alpha=1), theta_square_cut, prediction_cut
+    h, _ = np.histogram(
+        background_events['theta'] ** 2, bins=off_bins, weights=background_events.weight
+    )
+    n_off = h.mean()
+
+    if return_unweighted:
+        h, _ = np.histogram(
+           background_events['theta'] ** 2, bins=off_bins,
+        )
+        counts = h.mean()
+
+        return n_off, counts
+
+    return n_off
+
+
+def calculate_significance(signal_events, background_events, theta_square_cut, alpha=1, check_validity=True):
+    is_valid = True
+    n_on, n_off = calculate_n_on_n_off(signal_events, background_events, theta_square_cut, alpha=alpha)
+    
+    if check_validity:
+        off_bins = np.arange(0, 0.6, theta_square_cut / alpha)
+        h, _ = np.histogram(background_events['theta'] ** 2, bins=off_bins)
+
+        is_valid = (h == 0).sum() < len(h)//2 # less than half of the bins have to be nonzero 
+        # is_valid &= h.sum() > 10
+        # is_valid &= n_on > n_off + 10
+
+        if not is_valid:
+            # print('not valid')
+            return 0
+    
+    return li_ma_significance(n_on, n_off, alpha=alpha)
