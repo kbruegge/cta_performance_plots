@@ -41,7 +41,6 @@ def load_sensitivity_reference():
     return df
 
 
-@u.quantity_input(energies=u.TeV, e_min=u.TeV, e_max=u.TeV)
 def make_energy_bins(
         energies=None,
         e_min=None,
