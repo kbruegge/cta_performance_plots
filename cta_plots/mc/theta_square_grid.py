@@ -16,22 +16,30 @@ from cta_plots import make_energy_bins
 from tqdm import tqdm
 
 
-def add_theta_square_histogram(gammas_gammalike, background_gammalike, ax):
+def add_theta_square_histogram(gammas_gammalike, background_gammalike, theta_square_cut, ax):
     on = gammas_gammalike
     off = background_gammalike
 
-    bins = np.arange(0, 0.6, 0.01)
+    bins = np.arange(0, 1, 0.015)
+
     h_off, _ = np.histogram(off['theta'] ** 2, bins=bins, weights=off.weight)
     h_on, _ = np.histogram(on['theta'] ** 2, bins=bins, weights=on.weight)
+
+    # if True:
+    #     h, _ = np.histogram(off['theta'] ** 2, bins=bins)
+    #     is_valid = (h == 0).sum() < len(h)//2 # less than half of the bins have to be nonzero 
+    #     print(f'Number of zero entries: {(h_off == 0).sum()}, length of hist : {len(h_off)},  ')
+    #     print(f'Is valid: {is_valid} ')
 
     ax.step(bins[:-1], h_on + h_off.mean(), where='post', label='on events')
     ax.step(bins[:-1], h_off, where='post', label='off events protons')
 
     off_electrons = off.query(f'type == {ELECTRON_TYPE}')
     h_off_electrons, _ = np.histogram(off_electrons['theta'] ** 2, bins=bins, weights=off_electrons.weight)
-    ax.step(bins[:-1], h_off_electrons, where='post', label='off events electrons')
+    ax.step(bins[:-1],  h_off_electrons, where='post', label='off events electrons')
+    
     ax.axhline(y=h_off.mean(), color='C1', lw=1, alpha=0.7)
-    ax.set_ylim([0, max(h_on + h_off) * 1.18])
+    ax.set_ylim([0, max(h_on + h_off.mean()) * 1.18])
 
 
 def add_text_to_axis(
@@ -57,8 +65,7 @@ def add_text_to_axis(
 @click.argument('protons_path', type=click.Path(exists=True))
 @click.argument('electrons_path', type=click.Path(exists=True))
 @click.option('-o', '--output', type=click.Path(exists=False))
-@click.option('-j', '--n_jobs', default=-4)
-def main(gammas_path, protons_path, electrons_path, output, n_jobs):
+def main(gammas_path, protons_path, electrons_path, output):
 
     t_obs = 30 * u.min
 
@@ -70,7 +77,7 @@ def main(gammas_path, protons_path, electrons_path, output, n_jobs):
     e_min, e_max = 0.02 * u.TeV, 200 * u.TeV
     bin_edges, _, _ = make_energy_bins(e_min=e_min, e_max=e_max, bins=n_bins, centering='log')
 
-    theta_square_cuts = np.arange(0.01, 0.5, 0.01)
+    theta_square_cuts = np.arange(0.005, 0.2, 0.005)
     prediction_cuts = np.arange(0.2, 1, 0.05)
 
     rows = int(np.sqrt(len(bin_edges)) + 1)
@@ -84,15 +91,20 @@ def main(gammas_path, protons_path, electrons_path, output, n_jobs):
     b = background.groupby(groups) 
     
     iterator = zip(g, b, axs.ravel())
+    # alpha = 0.2
 
     for (_, signal_in_range ), (_, background_in_range), ax in tqdm(iterator, total=n_bins):
+        # print(f'Energy mean before passing data: {signal_in_range.gamma_energy_prediction_mean.mean()}')
         best_prediction_cut, best_theta_square_cut, best_significance = find_best_detection_significance(
-            theta_square_cuts, prediction_cuts, signal_in_range, background_in_range
+            theta_square_cuts, prediction_cuts, signal_in_range, background_in_range, alpha=1,
         )
-        gammas_gammalike = signal_in_range[signal_in_range.gamma_prediction_mean >=best_prediction_cut]
-        background_gammalike = background_in_range[background_in_range.gamma_prediction_mean >=best_prediction_cut]
+        # print('--//----'*10)
+        # print(f'Best prediction cut {best_prediction_cut}')
+        # print(f'Best theta_square cut {best_theta_square_cut}')
+        gammas_gammalike = signal_in_range[signal_in_range.gamma_prediction_mean >= best_prediction_cut]
+        background_gammalike = background_in_range[background_in_range.gamma_prediction_mean >= best_prediction_cut]
 
-        add_theta_square_histogram(gammas_gammalike, background_gammalike, ax)
+        add_theta_square_histogram(gammas_gammalike, background_gammalike, best_theta_square_cut, ax)
         add_text_to_axis(
             gammas_gammalike,
             background_gammalike,
