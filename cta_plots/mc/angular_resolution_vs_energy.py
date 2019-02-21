@@ -1,3 +1,4 @@
+import os
 import click
 import matplotlib.pyplot as plt
 import numpy as np
@@ -46,7 +47,10 @@ def main(input_dl3_file, output, threshold, reference, complementary, multiplici
 
     distance = calculate_distance_to_true_source_position(df)
 
-    bins, bin_center, bin_widths = make_energy_bins(e_min=0.01 * u.TeV, e_max=120 * u.TeV, bins=20)
+    n_bins = 20
+    e_min, e_max = 0.02 * u.TeV, 200 * u.TeV
+    bins, bin_center, _ = make_energy_bins(e_min=e_min, e_max=e_max, bins=n_bins, centering='log')
+    # bins, bin_center, bin_widths = make_energy_bins(e_min=0.01 * u.TeV, e_max=120 * u.TeV, bins=20)
 
     if plot_e_reco:
         x = df.gamma_energy_prediction_mean.values
@@ -80,10 +84,16 @@ def main(input_dl3_file, output, threshold, reference, complementary, multiplici
 
     plt.legend()
     plt.tight_layout()
+    
     if title:
         plt.title(title)
+    
     if output:
         plt.savefig(output)
+        df = pd.DataFrame({'resolution': b_68, 'energy': bin_center, 'multiplicity': multiplicity})
+        n, _ = os.path.splitext(output)
+        print(f"writing csv to {n + '.csv'}")
+        df.to_csv(n + '.csv', index=False)
     else:
         plt.show()
 
