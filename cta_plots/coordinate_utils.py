@@ -11,6 +11,7 @@ from colorama import Fore
 
 ELECTRON_TYPE = 1
 PROTON_TYPE = 0
+MAX_THETA_SQUARE_CUT = 1
 
 def calculate_distance_to_true_source_position(df):
     source_az = Angle(df.mc_az.values * u.deg).wrap_at(180 * u.deg)
@@ -103,11 +104,11 @@ def load_background_events(protons_path, electrons_path,  source_alt, source_az,
 
 def find_best_detection_significance(theta_square_cuts, prediction_cuts, signal_events, background_events, alpha=1, silent=False):
 
-    MAX_THETA_SQUARE_CUT = 0.6
-
-    m = (signal_events.theta <= np.sqrt(MAX_THETA_SQUARE_CUT)) & (signal_events.gamma_prediction_mean >= prediction_cuts.min())
+    # print(signal_events.gamma_energy_prediction_mean.mean())
+    m = (signal_events.gamma_prediction_mean >= prediction_cuts.min())
     signal_events = signal_events.copy()[m]
-    m = (background_events.theta <= np.sqrt(MAX_THETA_SQUARE_CUT)) & (background_events.gamma_prediction_mean >= prediction_cuts.min())
+    # print(f'Energy mean after selection: {signal_events.gamma_energy_prediction_mean.mean()}')
+    m = (background_events.gamma_prediction_mean >= prediction_cuts.min())
     background_events = background_events.copy()[m]
 
     rs = []
@@ -120,18 +121,37 @@ def find_best_detection_significance(theta_square_cuts, prediction_cuts, signal_
             significance = calculate_significance(selected_signal, selected_background, tc, alpha=alpha)
             rs.append([significance, tc, pc])
     
-
-    max_index = np.argmax([r[0] for r in rs])
+    # print(signal_events.gamma_energy_prediction_mean.mean())
+    # if (signal_events.gamma_energy_prediction_mean.mean() > 50) and (signal_events.gamma_energy_prediction_mean.mean() < 70):
+    #     from IPython import embed; embed()
+    significances = np.array([r[0] for r in rs])
+    if (significances == 0).all():
+        print(Fore.YELLOW +  ' All significances are zero.')
+        print(Fore.RESET)
+    max_index = np.argmax(significances)
     best_significance, best_theta_square_cut, best_prediction_cut = rs[max_index]
+
+    # if True:
+    #     # print()
+    #     # print(f'Best prediction cut: {best_prediction_cut}')
+    #     # print(f'Best theta square cut: {best_theta_square_cut}')
+    #     m = (signal_events.gamma_prediction_mean >= best_prediction_cut)
+    #     selected_signal = signal_events[m]
+    #     m = (background_events.gamma_prediction_mean >= best_prediction_cut)
+    #     selected_background = background_events[m]
+    #     significance = calculate_significance(selected_signal, selected_background, best_theta_square_cut, alpha=alpha, verbose=True)
+
+
 
     return best_prediction_cut, best_theta_square_cut, best_significance
 
 
 def calculate_n_signal(signal_events, theta_square_cut, return_unweighted=False):
-    n_signal =  signal_events[signal_events.theta <= np.sqrt(theta_square_cut)].weight.sum()
+    m = signal_events.theta**2 <= theta_square_cut
+    n_signal =  signal_events[m].weight.sum()
     
     if return_unweighted:
-        counts = len(signal_events[signal_events.theta <= np.sqrt(theta_square_cut)])
+        counts = m.sum()
         return n_signal, counts
     
     return n_signal
@@ -145,36 +165,65 @@ def calculate_n_on_n_off(signal_events, background_events, theta_square_cut, alp
     return n_on, n_off
 
 def calculate_n_off(background_events, theta_square_cut, alpha=1, return_unweighted=False):
-    off_bins = np.arange(0, 0.6, theta_square_cut / alpha)
-
-    h, _ = np.histogram(
-        background_events['theta'] ** 2, bins=off_bins, weights=background_events.weight
-    )
-    n_off = h.mean()
-
+    m = background_events.theta <= 1.0
+    n_off = background_events[m].weight.sum() * (theta_square_cut / alpha)
     if return_unweighted:
-        h, _ = np.histogram(
-           background_events['theta'] ** 2, bins=off_bins,
-        )
-        counts = h.mean()
-
+        counts = m.sum()
         return n_off, counts
-
+    
     return n_off
 
+    ########
+    # m = background_events.theta <= (np.sqrt(theta_square_cut / alpha))
+    # n_off =  background_events[m].weight.sum()
+    
+    # if return_unweighted:
+    #     counts = m.sum()
+    #     return n_off, counts
+    
+    # return n_off
 
-def calculate_significance(signal_events, background_events, theta_square_cut, alpha=1, check_validity=True):
+    ########
+    # bins = np.arange(0, 1, theta_square_cut)
+
+    # h, _ = np.histogram(
+    #     background_events['theta'] ** 2, bins=bins, weights=background_events.weight
+    # )
+    # n_off = h.mean()/alpha
+
+    # if return_unweighted:
+    #     h, _ = np.histogram(
+    #        background_events['theta'] ** 2, bins=bins,
+    #     )
+    #     counts = h.mean()/alpha
+
+    #     return n_off, counts
+
+    # return n_off
+
+
+def calculate_significance(signal_events, background_events, theta_square_cut, alpha=1, check_validity=True, verbose=False):
     is_valid = True
     n_on, n_off = calculate_n_on_n_off(signal_events, background_events, theta_square_cut, alpha=alpha)
     
-    if check_validity:
-        off_bins = np.arange(0, 0.6, theta_square_cut / alpha)
-        h, _ = np.histogram(background_events['theta'] ** 2, bins=off_bins)
+    if False:
+        bins = np.arange(0, 1, theta_square_cut)
+        h, _ = np.histogram(background_events['theta'] ** 2, bins=bins)
 
         is_valid = (h == 0).sum() < len(h)//2 # less than half of the bins have to be nonzero 
+        is_valid &= (h.sum() > 2 * len(h))
         # is_valid &= h.sum() > 10
         # is_valid &= n_on > n_off + 10
-
+        if verbose:
+            print(f'Is valid: {is_valid}')
+            print(f'Number of zeros in histogram: {(h == 0).sum()}')
+            print(f'Number bins histogram: {h.shape}')
+            print(f'Number entries in histogram: {h.sum()}')
+            print(f'Theta square cut: {theta_square_cut}')
+            if len(h) < 10:
+                print(h)
+                
+            # print(f'Number of zeros in histogram: {(h == 0).sum()}')
         if not is_valid:
             # print('not valid')
             return 0

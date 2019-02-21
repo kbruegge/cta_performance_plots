@@ -6,7 +6,7 @@ from fact.analysis import li_ma_significance
 
 import click
 
-from scipy.ndimage import gaussian_filter
+from scipy.ndimage import gaussian_filter1d
 from scipy.interpolate import interp1d
 
 import numpy as np
@@ -18,7 +18,7 @@ from scipy.optimize import brute
 from scipy.optimize import minimize_scalar
 from tqdm import tqdm
 from cta_plots import load_sensitivity_reference, load_sensitivity_requirement
-from cta_plots.coordinate_utils import find_best_detection_significance, calculate_n_signal, calculate_n_off
+from cta_plots.coordinate_utils import calculate_n_signal, calculate_n_off
 from cta_plots.coordinate_utils import load_signal_events, load_background_events
 
 from colorama import Fore
@@ -27,8 +27,21 @@ crab = CrabSpectrum()
 # cosmic_proton = CosmicRaySpectrum()
 # cta_electron_spectrum = CTAElectronSpectrum()
 
+def calculate_num_signal_events(events, angular_resolution):
+    m = events.theta <= angular_resolution(events.gamma_energy_prediction_mean)
+    n =  events[m].weight.sum()
+    counts = m.sum()
+    return n, counts
 
-def scaling_factor(n_signal, n_background, t_signal, t_background, alpha=1, N=200):
+def calculate_num_off_events(events, angular_resolution, alpha):
+    m = events.theta <= 1.0
+    theta_cut = angular_resolution(events[m].gamma_energy_prediction_mean)
+    n_off = (events[m].weight * (theta_cut**2 / alpha)).sum()
+    counts = m.sum()
+    return n_off, counts
+
+
+def find_scaling_factor(n_signal, n_background, t_signal, t_background, alpha=1, N=300):
     right_bound = 100
 
     def target(scaling_factor, n_signal, n_background, alpha=0.2, sigma=5):
@@ -56,13 +69,50 @@ def scaling_factor(n_signal, n_background, t_signal, t_background, alpha=1, N=20
     return np.nanpercentile(np.array(hs), (50, 5, 95))
 
 
-def calc_relative_sensitivity(gammas, background, bin_edges, alpha=0.2):
+def find_best_prediction_cut(prediction_cuts, signal_events, background_events, angular_resolution,  alpha=1, silent=False):
+    rs = []
+    for pc in tqdm(prediction_cuts, disable=silent):
+        m = (signal_events.gamma_prediction_mean >= pc)
+        selected_signal = signal_events[m]
+        m = (background_events.gamma_prediction_mean >= pc)
+        selected_background = background_events[m]
+
+        n_off, n_off_count = calculate_num_off_events(selected_background, angular_resolution, alpha)
+        n_signal, n_signal_count = calculate_num_signal_events(selected_signal, angular_resolution)
+        n_on = n_signal + alpha*n_off 
+
+        significance = li_ma_significance(n_on, n_off, alpha=alpha)
+        if n_off_count < 100:
+            print(f'not enough bakground {n_off_count, pc}')
+            significance = 0
+        if n_signal_count <= 10:
+            print('not enough signal')
+            significance = 0
+        if n_signal_count <= alpha*n_off_count + 5:
+            print('not enough signal compared tp bkg')
+            significance = 0
+        
+
+        rs.append([significance, pc])
+    
+    significances = np.array([r[0] for r in rs])
+    if (significances == 0).all():
+        print(Fore.YELLOW +  ' All significances are zero.')
+        print(Fore.RESET)
+        return np.nan
+
+    max_index = np.argmax(significances)
+    best_significance, best_prediction_cut = rs[max_index]
+
+    return best_prediction_cut
+
+
+
+def calc_relative_sensitivity(gammas, background, bin_edges, angular_resolution, t_obs=50 * u.h, alpha=0.2):
     relative_sensitivities = []
     thresholds = []
-    thetas = []
 
-    theta_square_cuts = np.arange(0.005, 0.2, 0.005)
-    prediction_cuts = np.arange(0.2, 1, 0.05)
+    prediction_cuts = np.arange(0.0, 1, 0.025)
 
     groups = pd.cut(gammas.gamma_energy_prediction_mean, bins=bin_edges)
     g = gammas.groupby(groups)
@@ -71,8 +121,8 @@ def calc_relative_sensitivity(gammas, background, bin_edges, alpha=0.2):
     b = background.groupby(groups)
 
     for (_, signal_in_range), (_, background_in_range) in tqdm(zip(g, b), total=len(bin_edges) - 1):
-        best_prediction_cut, best_theta_square_cut, best_significance = find_best_detection_significance(
-            theta_square_cuts, prediction_cuts, signal_in_range, background_in_range, alpha=alpha
+        best_prediction_cut = find_best_prediction_cut(
+            prediction_cuts, signal_in_range, background_in_range, angular_resolution, alpha=alpha
         )
         gammas_gammalike = signal_in_range[
             signal_in_range.gamma_prediction_mean >= best_prediction_cut
@@ -82,18 +132,14 @@ def calc_relative_sensitivity(gammas, background, bin_edges, alpha=0.2):
             background_in_range.gamma_prediction_mean >= best_prediction_cut
         ]
 
-        n_signal, n_signal_counts = calculate_n_signal(
-            gammas_gammalike, best_theta_square_cut, return_unweighted=True
-        )
-        n_off, n_off_counts = calculate_n_off(
-            background_gammalike, best_theta_square_cut, alpha=alpha, return_unweighted=True
-        )
 
-        rs = scaling_factor(n_signal, n_off, n_signal_counts, n_off_counts, alpha=alpha)
+        n_signal, n_signal_counts = calculate_num_signal_events(gammas_gammalike, angular_resolution)
+        n_off, n_off_counts = calculate_num_off_events(background_gammalike, angular_resolution, alpha)
+
+        rs = find_scaling_factor(n_signal, n_off, n_signal_counts, n_off_counts, alpha=alpha)
 
         relative_sensitivities.append(rs)
         thresholds.append(best_prediction_cut)
-        thetas.append(np.sqrt(best_theta_square_cut))
 
     m, l, h = np.array(relative_sensitivities).T
     d = {
@@ -101,10 +147,10 @@ def calc_relative_sensitivity(gammas, background, bin_edges, alpha=0.2):
         'sensitivity_low': l,
         'sensitivity_high': h,
         'threshold': thresholds,
-        'theta': thetas,
         'e_min': bin_edges[:-1],
         'e_max': bin_edges[1:],
     }
+
     return pd.DataFrame(d)
 
 
@@ -162,15 +208,22 @@ def plot_refrence(ax=None):
     )
     return ax
 
+def load_angular_resolution_function(angular_resolution_path):
+    df = pd.read_csv(angular_resolution_path)
+    r = gaussian_filter1d(df.resolution, sigma=1)
+    f = interp1d(df.energy, r, kind='cubic',  bounds_error=False, fill_value='extrapolate')
+    return f
+
+
 
 @click.command()
 @click.argument('gammas_path', type=click.Path(exists=True))
 @click.argument('protons_path', type=click.Path(exists=True))
 @click.argument('electrons_path', type=click.Path(exists=True))
+@click.argument('angular_resolution_path', type=click.Path(exists=True))
 @click.option('-o', '--output', type=click.Path(exists=False))
-@click.option('-m', '--multiplicity', default=2)
 @click.option('-t', '--t_obs', default=50)
-@click.option('-c', '--color', default='xkcd:green')
+@click.option('-c', '--color', default='xkcd:red')
 @click.option('--reference/--no-reference', default=False)
 @click.option('--requirement/--no-requirement', default=False)
 @click.option('--flux/--no-flux', default=True)
@@ -178,8 +231,8 @@ def main(
     gammas_path,
     protons_path,
     electrons_path,
+    angular_resolution_path,
     output,
-    multiplicity,
     t_obs,
     color,
     reference,
@@ -193,19 +246,24 @@ def main(
         protons_path, electrons_path, source_alt, source_az, assumed_obs_time=t_obs
     )
 
+    n_bins = 20
+    e_min, e_max = 0.02 * u.TeV, 200 * u.TeV
+    bin_edges, bin_center, _ = make_energy_bins(e_min=e_min, e_max=e_max, bins=n_bins, centering='log')
+
+    alpha = 0.2 
+
+    multiplicity = pd.read_csv(angular_resolution_path)['multiplicity'][0]
     if multiplicity > 2:
         gammas = gammas.query(f'num_triggered_telescopes >= {multiplicity}')
         background = background.query(f'num_triggered_telescopes >= {multiplicity}')
         label = f'This Analysis. Multiplicity > {multiplicity}'
     else:
         label = 'This Analysis'
+    
+    angular_resolution = load_angular_resolution_function(angular_resolution_path)
 
-    n_bins = 20
-    e_min, e_max = 0.02 * u.TeV, 200 * u.TeV
-    bin_edges, bin_center, _ = make_energy_bins(e_min=e_min, e_max=e_max, bins=n_bins, centering='log')
-
-    df_sensitivity = calc_relative_sensitivity(gammas, background, bin_edges, alpha=0.2)
-
+    df_sensitivity = calc_relative_sensitivity(gammas, background, bin_edges, angular_resolution, alpha=alpha, t_obs=t_obs)
+    print(df_sensitivity)
     # rs_mult_extrapolate = calc_relative_sensitivity(gammas, background, bin_edges, method=method, alpha=0.2)
 
     ax = plot_sensitivity(df_sensitivity, bin_edges, bin_center, color=color, label=label)
