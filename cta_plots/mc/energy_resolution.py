@@ -20,7 +20,11 @@ from cta_plots.colors import default_cmap, main_color
 @click.option('--relative/--no-relative', default=True)
 @click.option('--plot_e_reco', is_flag=True, default=False)
 def main(input_dl3_file, output, threshold, multiplicity, color, reference, relative, plot_e_reco):
-    bins, bin_center, bin_widths = make_energy_bins(e_min=0.02 * u.TeV, e_max=150 * u.TeV, bins=20)
+    
+    n_bins = 20
+    e_min, e_max = 0.02 * u.TeV, 200 * u.TeV
+    bins, bin_center, bin_widths = make_energy_bins(e_min=e_min, e_max=e_max, bins=n_bins, centering='log')
+    
     columns = ['array_event_id', 'mc_energy', 'gamma_energy_prediction_mean', 'num_triggered_telescopes']
 
     if threshold > 0:
@@ -32,7 +36,7 @@ def main(input_dl3_file, output, threshold, multiplicity, color, reference, rela
         gammas = gammas.query(f'num_triggered_telescopes >= {multiplicity}').copy()
 
     if threshold > 0:
-        gammas = gammas.query(f'gamma_prediction_mean > {threshold}').copy()
+        gammas = gammas.query(f'gamma_prediction_mean >= {threshold}').copy()
 
     e_true = gammas.mc_energy
     e_reco = gammas.gamma_energy_prediction_mean
@@ -86,4 +90,5 @@ def main(input_dl3_file, output, threshold, multiplicity, color, reference, rela
 
 
 if __name__ == "__main__":
+    # pylint: disable=no-value-for-parameter
     main()
