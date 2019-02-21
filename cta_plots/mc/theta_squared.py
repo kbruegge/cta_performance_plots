@@ -33,7 +33,7 @@ def main(gammas_path, protons_path, electrons_path, output, n_jobs):
     prediction_cuts = np.arange(0.4, 1, 0.1)
 
     best_prediction_cut, best_theta_square_cut, best_significance = find_best_detection_significance(
-        theta_square_cuts, prediction_cuts, n_jobs, gammas, background
+        theta_square_cuts, prediction_cuts, gammas, background, alpha=1
     )
 
     gammas_gammalike = gammas.query(f'gamma_prediction_mean > {best_prediction_cut}').copy()
