@@ -29,6 +29,7 @@ setup(
         'tables',
         'tqdm',
         'seaborn',
+	'colorama',
     ],
     zip_safe=False,
     entry_points={
