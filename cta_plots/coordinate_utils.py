@@ -9,6 +9,7 @@ import numpy as np
 from tqdm import tqdm
 from colorama import Fore
 
+
 ELECTRON_TYPE = 1
 PROTON_TYPE = 0
 MAX_THETA_SQUARE_CUT = 1
