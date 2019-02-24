@@ -62,6 +62,55 @@ def load_angular_resolution_function(angular_resolution_path, sigma=1):
     return f
 
 
+def load_energy_bias_function(energy_bias_path, sigma=1):
+    ''' Creates a the enrgy bias function 
+        f(e_reco) = (e_reco - e_true)/e_reco
+        from the data given by the path to the csv file contianing the bias table.
+    Parameters
+    ----------
+    energy_bias_path : str
+        path to csv file created by the energy_bias script.
+    sigma : int, optional
+        amount of smoothing to perform
+    
+    Returns
+    -------
+    function
+        function of e_reco returning the bias
+    '''
+
+    df = pd.read_csv(energy_bias_path)
+    r = gaussian_filter1d(df['bias'], sigma=sigma)
+    f = interp1d(df.energy_prediction, r, kind='cubic', bounds_error=False, fill_value='extrapolate')
+    return f
+
+def apply_cuts(df, cuts_path, sigma=1, theta_cuts=True, prediction_cuts=True, multiplicity_cuts=True):
+    cuts = pd.read_csv(cuts_path)
+    bin_center = np.sqrt(cuts.e_min * cuts.e_max)
+
+    m = np.ones(len(df)).astype(np.bool)
+    if theta_cuts:
+        source_az = df.mc_az.values * u.deg
+        source_alt = df.mc_alt.values * u.deg
+
+        df['theta'] = (calculate_distance_to_point_source(df, source_alt=source_alt, source_az=source_az).to_value(u.deg))
+
+        t = gaussian_filter1d(cuts.theta_cut, sigma=sigma)
+        f_theta = interp1d(bin_center, t, kind='cubic', bounds_error=False, fill_value='extrapolate')
+        m &= df.theta < f_theta(df.gamma_energy_prediction_mean)
+
+    if prediction_cuts: 
+        p = gaussian_filter1d(cuts.prediction_cut, sigma=sigma)
+        f_prediction = interp1d(bin_center, p, kind='cubic', bounds_error=False, fill_value='extrapolate')
+        m &= df.gamma_prediction_mean >= f_prediction(df.gamma_energy_prediction_mean)
+    if multiplicity_cuts:
+        multiplicity = cuts.multiplicity[0]
+        print('multi', multiplicity)
+        m &= df.num_triggered_telescopes >= multiplicity
+    
+    return df[m]
+
+
 def load_sensitivity_reference():
     path = '/ascii/CTA-Performance-prod3b-v1-South-20deg-50h-DiffSens.txt'
     r = resource_string('cta_plots.resources', path)
@@ -69,6 +118,7 @@ def load_sensitivity_reference():
         BytesIO(r), delimiter='\t\t', skiprows=10, names=['e_min', 'e_max', 'sensitivity'], engine='python'
     )
     return df
+
 
 
 def make_energy_bins(energies=None, e_min=None, e_max=None, bins=10, centering='linear'):
@@ -89,6 +139,26 @@ def make_energy_bins(energies=None, e_min=None, e_max=None, bins=10, centering='
 
     bin_widths = np.diff(bin_edges)
 
+    return bin_edges, bin_centers, bin_widths
+
+
+def make_energy_bins_per_decade(e_min, e_max, n_bins_per_decade=10, overflow=False, centering='linear'):
+    bin_edges = np.logspace(-3, 3, (6 * n_bins_per_decade) + 1)
+    
+    idx = np.searchsorted(bin_edges, [e_min.to_value(u.TeV), e_max.to_value(u.TeV)])
+    bin_edges = bin_edges[idx[0]:idx[1]]
+    if overflow:
+        bin_edges = np.append(bin_edges, 10000)
+        bin_edges = np.append(0, bin_edges)
+
+    bin_edges *= u.TeV
+
+    if centering == 'log':
+        bin_centers = np.sqrt(bin_edges[:-1] * bin_edges[1:])
+    else:
+        bin_centers = 0.5 * (bin_edges[:-1] + bin_edges[1:])
+    bin_widths = np.diff(bin_edges)
+    
     return bin_edges, bin_centers, bin_widths
 
 

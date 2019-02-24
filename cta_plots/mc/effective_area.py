@@ -41,8 +41,6 @@ def main(input_file, label, output, n_bins, multiplicity, threshold, reference):
             gammas = gammas_complete.copy()
         gammas_energy = gammas.gamma_energy_prediction_mean.values
 
-
-
         hist_all = mc_production.expected_events_for_bins(energy_bins=bins)
         hist_selected, _ = np.histogram(gammas_energy, bins=bins)
 

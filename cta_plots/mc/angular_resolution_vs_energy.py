@@ -6,17 +6,21 @@ import pandas as pd
 import astropy.units as u
 from astropy.coordinates import Angle
 from scipy.stats import binned_statistic
-from cta_plots import make_energy_bins
-from cta_plots import load_angular_resolution_requirement
 from matplotlib.colors import PowerNorm
 from astropy.coordinates.angle_utilities import angular_separation
+from fact.io import read_data
+
 from cta_plots.colors import default_cmap, main_color, main_color_complement
 from cta_plots.coordinate_utils import calculate_distance_to_true_source_position
-from fact.io import read_data
+from cta_plots import make_energy_bins
+from cta_plots import load_angular_resolution_requirement, apply_cuts
+
+
 
 
 @click.command()
 @click.argument('input_dl3_file', type=click.Path(exists=True))
+@click.option('-c', '--cuts_path', type=click.Path(exists=True))
 @click.option('-o', '--output', type=click.Path(exists=False))
 @click.option('-t', '--threshold', default=0.0)
 @click.option('-m', '--multiplicity', default=2)
@@ -24,16 +28,13 @@ from fact.io import read_data
 @click.option('--reference/--no-reference', default=False)
 @click.option('--complementary/--no-complementary', default=False)
 @click.option('--plot_e_reco', is_flag=True, default=False)
-def main(input_dl3_file, output, threshold, reference, complementary, multiplicity, title, plot_e_reco):
-    columns = ['mc_alt', 'mc_az', 'mc_energy', 'az', 'alt', 'gamma_energy_prediction_mean']
-
-    if threshold > 0:
-        columns.append('gamma_prediction_mean')
-    if multiplicity > 2:
-        columns.append('num_triggered_telescopes')
+def main(input_dl3_file, cuts_path,  output, threshold, reference, complementary, multiplicity, title, plot_e_reco):
+    columns = ['mc_alt', 'mc_az', 'mc_energy', 'az', 'alt', 'gamma_energy_prediction_mean', 'gamma_prediction_mean', 'num_triggered_telescopes']
 
     df = read_data(input_dl3_file, key='array_events', columns=columns).dropna()
 
+    if cuts_path:
+        df = apply_cuts(df, cuts_path, theta_cuts=False)
     if threshold > 0:
         df = df.query(f'gamma_prediction_mean > {threshold}').copy()
     if multiplicity > 2:
