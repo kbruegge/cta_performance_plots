@@ -12,34 +12,45 @@ from fact.io import read_data
 
 from cta_plots.colors import default_cmap, main_color, main_color_complement
 from cta_plots.coordinate_utils import calculate_distance_to_true_source_position
-from cta_plots import make_energy_bins
-from cta_plots import load_angular_resolution_requirement, apply_cuts
-
-
+from cta_plots import make_default_cta_binning
+from cta_plots import load_angular_resolution_requirement, apply_cuts, load_signal_events
 
 
 @click.command()
 @click.argument('input_dl3_file', type=click.Path(exists=True))
 @click.option('-c', '--cuts_path', type=click.Path(exists=True))
+@click.option('-m', '--multiplicity', default=-1)
 @click.option('-o', '--output', type=click.Path(exists=False))
-@click.option('-t', '--threshold', default=0.0)
-@click.option('-m', '--multiplicity', default=2)
 @click.option('--title', default=None)
 @click.option('--reference/--no-reference', default=False)
 @click.option('--complementary/--no-complementary', default=False)
 @click.option('--plot_e_reco', is_flag=True, default=False)
-def main(input_dl3_file, cuts_path,  output, threshold, reference, complementary, multiplicity, title, plot_e_reco):
-    columns = ['mc_alt', 'mc_az', 'mc_energy', 'az', 'alt', 'gamma_energy_prediction_mean', 'gamma_prediction_mean', 'num_triggered_telescopes']
+def main(input_dl3_file, cuts_path, multiplicity, output, reference, complementary, title, plot_e_reco):
 
-    df = read_data(input_dl3_file, key='array_events', columns=columns).dropna()
+    if cuts_path and multiplicity > 0:
+        print('Cannot perform two sets of cuts. Supply either multiplicity or path to optimized cuts file')
+        return
+    cols = [
+        'mc_energy',
+        'mc_alt',
+        'mc_az',
+        'alt',
+        'az',
+        'gamma_prediction_mean'
+    ]
+    if plot_e_reco:
+        cols += ['gamma_energy_prediction_mean']
+    if multiplicity:
+        cols += ['num_triggered_telescopes']
+    if cuts_path:
+        cols += ['gamma_prediction_mean']
+
+    df, _, _ = load_signal_events(input_dl3_file, calculate_weights=False, columns=cols) 
 
     if cuts_path:
         df = apply_cuts(df, cuts_path, theta_cuts=False)
-    if threshold > 0:
-        df = df.query(f'gamma_prediction_mean > {threshold}').copy()
-    if multiplicity > 2:
-        df = df.query(f'num_triggered_telescopes >= {multiplicity}').copy()
-
+    elif multiplicity > 2:
+        df = df[df.num_triggered_telescopes >= multiplicity]
 
     if complementary:
         color = main_color_complement
@@ -49,9 +60,8 @@ def main(input_dl3_file, cuts_path,  output, threshold, reference, complementary
     distance = calculate_distance_to_true_source_position(df)
 
     n_bins = 20
-    e_min, e_max = 0.02 * u.TeV, 200 * u.TeV
-    bins, bin_center, _ = make_energy_bins(e_min=e_min, e_max=e_max, bins=n_bins, centering='log')
-    # bins, bin_center, bin_widths = make_energy_bins(e_min=0.01 * u.TeV, e_max=120 * u.TeV, bins=20)
+    e_min, e_max = 0.005 * u.TeV, 200 * u.TeV
+    bins, bin_center, _ = make_default_cta_binning(e_min=e_min, e_max=e_max)
 
     if plot_e_reco:
         x = df.gamma_energy_prediction_mean.values
@@ -60,7 +70,7 @@ def main(input_dl3_file, cuts_path,  output, threshold, reference, complementary
 
     y = distance
 
-    b_68, bin_edges, binnumber = binned_statistic(x, y, statistic=lambda y: np.percentile(y, 68), bins=bins)
+    b_68, bin_edges, _ = binned_statistic(x, y, statistic=lambda y: np.nanpercentile(y, 68), bins=bins)
 
     bin_centers = np.sqrt(bin_edges[1:] * bin_edges[:-1])
     bins_y = np.logspace(np.log10(0.005), np.log10(50.8), 100)
@@ -94,7 +104,7 @@ def main(input_dl3_file, cuts_path,  output, threshold, reference, complementary
         df = pd.DataFrame({'resolution': b_68, 'energy': bin_center, 'multiplicity': multiplicity})
         n, _ = os.path.splitext(output)
         print(f"writing csv to {n + '.csv'}")
-        df.to_csv(n + '.csv', index=False)
+        df.to_csv(n + '.csv', index=False, na_rep='nan')
     else:
         plt.show()
 

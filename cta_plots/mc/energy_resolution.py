@@ -5,7 +5,7 @@ import numpy as np
 import astropy.units as u
 from scipy.stats import binned_statistic
 import fact.io
-from cta_plots import make_energy_bins, load_energy_resolution_requirement
+from cta_plots import make_default_cta_binning, load_energy_resolution_requirement, load_signal_events, apply_cuts
 from matplotlib.colors import PowerNorm
 from cta_plots.colors import default_cmap, main_color
 
@@ -13,30 +13,19 @@ from cta_plots.colors import default_cmap, main_color
 @click.command()
 @click.argument('input_dl3_file', type=click.Path(exists=True))
 @click.option('-o', '--output', type=click.Path(exists=False))
-@click.option('-t', '--threshold', default=0.0)
-@click.option('-m', '--multiplicity', default=2)
+@click.option('-p', '--cuts_path', type=click.Path(exists=True))
 @click.option('-c', '--color', default=main_color)
 @click.option('--reference/--no-reference', default=False)
 @click.option('--relative/--no-relative', default=True)
 @click.option('--plot_e_reco', is_flag=True, default=False)
-def main(input_dl3_file, output, threshold, multiplicity, color, reference, relative, plot_e_reco):
+def main(input_dl3_file, output, cuts_path, color, reference, relative, plot_e_reco):
     
-    n_bins = 20
-    e_min, e_max = 0.02 * u.TeV, 200 * u.TeV
-    bins, bin_center, bin_widths = make_energy_bins(e_min=e_min, e_max=e_max, bins=n_bins, centering='log')
-    
-    columns = ['array_event_id', 'mc_energy', 'gamma_energy_prediction_mean', 'num_triggered_telescopes']
+    e_min, e_max = 0.005 * u.TeV, 200 * u.TeV
+    bins, bin_center, _ = make_default_cta_binning(e_min=e_min, e_max=e_max)
 
-    if threshold > 0:
-        columns.append('gamma_prediction_mean')
-
-    gammas = fact.io.read_data(input_dl3_file, key='array_events', columns=columns).dropna()
-
-    if multiplicity > 2:
-        gammas = gammas.query(f'num_triggered_telescopes >= {multiplicity}').copy()
-
-    if threshold > 0:
-        gammas = gammas.query(f'gamma_prediction_mean >= {threshold}').copy()
+    gammas, _, _ = load_signal_events(input_dl3_file, calculate_weights=False)
+    if cuts_path:
+        gammas = apply_cuts(gammas, cuts_path)
 
     e_true = gammas.mc_energy
     e_reco = gammas.gamma_energy_prediction_mean
@@ -48,9 +37,9 @@ def main(input_dl3_file, output, threshold, multiplicity, color, reference, rela
 
     resolution = (e_reco - e_true) / e_true
     if relative:
-        iqr, bin_edges, binnumber = binned_statistic(e_x, resolution, statistic=lambda y: ((np.percentile(y, 84) - np.percentile(y, 16)) / 2), bins=bins)
+        iqr, _, _ = binned_statistic(e_x, resolution, statistic=lambda y: ((np.nanpercentile(y, 84) - np.nanpercentile(y, 16)) / 2), bins=bins)
     else:
-        iqr, bin_edges, binnumber = binned_statistic(e_x, resolution, statistic=lambda y: np.percentile(np.abs(y), 68), bins=bins)
+        iqr, _, _ = binned_statistic(e_x, resolution, statistic=lambda y: np.nanpercentile(np.abs(y), 68), bins=bins)
 
     plt.ylabel('$\\frac{E_R}{E_T} - 1$')
 

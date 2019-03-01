@@ -10,7 +10,7 @@ from tqdm import tqdm
 
 from cta_plots import (load_sensitivity_reference,
                        load_sensitivity_requirement,
-                       make_energy_bins,
+                       make_default_cta_binning,
                        load_angular_resolution_function,
                        load_background_events,
                        load_signal_events,
@@ -55,7 +55,7 @@ def find_best_prediction_cut(
         n_on_count = n_signal_count + alpha * n_off_count
 
         significance = li_ma_significance(n_on, n_off, alpha=alpha)
-        if n_off_count < 50:
+        if n_off_count < 100:
             print(f'not enough bakground {n_off_count, pc}')
             significance = 0
         # if n_signal_count <= 10:
@@ -65,11 +65,11 @@ def find_best_prediction_cut(
         # # must be higher than 5 times the assumed bkg systematic uncertainty of 1 percent. (See aswg irf report)
         # # https://forge.in2p3.fr/projects/cta_analysis-and-simulations/repository/changes/DOC/InternalReports/IRFReports/released/v1.1/cta-aswg-IRFreport.pdf
         # # print(pc, '---->', n_on, 5*((n_off/alpha) * 0.01))
-        if n_on <= 5*((n_off/alpha) * 0.01) :
+        if n_on <= 5*((alpha*n_off) * 0.01) :
             print(f'not enough signal, pc: {pc}, on: {n_on_count}, off: {n_off_count}')
             print(f'weights pc: {pc}, on: {n_on}, off: {n_off}')
             significance = 0
-        if n_on <= alpha * n_off + 10:
+        if n_on_count <= alpha * n_off_count + 10:
             print(f'not enough signal compared tp bkg pc: {pc}, on: {n_on_count}, off: {n_off_count}')
             print(f'weights pc: {pc}, on: {n_on}, off: {n_off}')
             significance = 0
@@ -92,14 +92,13 @@ def calc_relative_sensitivity(gammas, background, bin_edges, angular_resolution,
     thresholds = []
     significances = []
 
-    prediction_cuts = np.arange(0.0, 1, 0.025)
+    prediction_cuts = np.arange(0.3, 1, 0.025)
 
     groups = pd.cut(gammas.gamma_energy_prediction_mean, bins=bin_edges)
     g = gammas.groupby(groups)
 
     groups = pd.cut(background.gamma_energy_prediction_mean, bins=bin_edges)
     b = background.groupby(groups)
-
     for (_, signal_in_range), (_, background_in_range) in tqdm(zip(g, b), total=len(bin_edges) - 1):
         best_prediction_cut, best_significance = find_best_prediction_cut(
             prediction_cuts, signal_in_range, background_in_range, angular_resolution, alpha=alpha
@@ -199,6 +198,7 @@ def plot_refrence(ax=None):
 @click.option('-t', '--t_obs', default=50)
 @click.option('-c', '--color', default='xkcd:red')
 @click.option('--reference/--no-reference', default=False)
+@click.option('--use_e_true/--no-use_e_true', default=False)
 @click.option('--requirement/--no-requirement', default=False)
 @click.option('--flux/--no-flux', default=True)
 def main(
@@ -211,6 +211,7 @@ def main(
     t_obs,
     color,
     reference,
+    use_e_true,
     requirement,
     flux,
 ):
@@ -221,21 +222,27 @@ def main(
         protons_path, electrons_path, source_alt, source_az, assumed_obs_time=t_obs
     )
 
-    n_bins = 20
-    e_min, e_max = 0.02 * u.TeV, 200 * u.TeV
-    bin_edges, bin_center, _ = make_energy_bins(e_min=e_min, e_max=e_max, bins=n_bins, centering='log')
+    e_min, e_max = 0.005 * u.TeV, 350 * u.TeV
+    bin_edges, bin_center, _ = make_default_cta_binning(e_min=e_min, e_max=e_max)
+    
     alpha = 0.2
 
     multiplicity = pd.read_csv(angular_resolution_path)['multiplicity'][0]
     if multiplicity > 2:
+        print(f'Cutting multiplcity at {multiplicity}')
         gammas = gammas.query(f'num_triggered_telescopes >= {multiplicity}')
         background = background.query(f'num_triggered_telescopes >= {multiplicity}')
         label = f'This Analysis. Multiplicity > {multiplicity}'
     else:
         label = 'This Analysis'
-
+    
     angular_resolution = load_angular_resolution_function(angular_resolution_path)
-    if energy_bias_path:
+    if use_e_true:
+        print(Fore.YELLOW + 'Using True Energy! Results will look richtich schäbich' + Fore.RESET)
+        gammas.gamma_energy_prediction_mean = gammas.mc_energy
+        background.gamma_energy_prediction_mean = background.mc_energy
+
+    elif energy_bias_path:
         energy_bias = load_energy_bias_function(energy_bias_path)
         e_reco = gammas.gamma_energy_prediction_mean
         e_corrected = e_reco - e_reco*energy_bias(e_reco)

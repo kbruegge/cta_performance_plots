@@ -8,11 +8,12 @@ from colorama import Fore
 from fact.analysis import li_ma_significance
 from tqdm import tqdm
 
-from cta_plots import (load_sensitivity_reference,
-                       make_energy_bins,
+from cta_plots import (load_background_reference,
+                       make_default_cta_binning,
                        load_background_events,
                        load_signal_events,
                        apply_cuts,
+                       create_interpolated_function,
                        )
 
 from cta_plots.sensitivity_utils import find_relative_sensitivity
@@ -21,10 +22,10 @@ from cta_plots.mc.spectrum import CrabSpectrum
 
 
 def plot_refrence(ax=None):
-    df = load_sensitivity_reference()
+    df = load_background_reference()
     bin_edges = sorted(list(set(df.e_min) | set(df.e_max))) * u.TeV
     bin_center = np.sqrt(bin_edges[:-1] * bin_edges[1:])
-    sensitivity = df.sensitivity.values * u.erg / (u.cm ** 2 * u.s)
+    sensitivity = df.rate.values * u.erg / (u.cm ** 2 * u.s)
 
     if not ax:
         ax = plt.gca()
@@ -54,23 +55,31 @@ def main(
     reference,
 ):
     t_obs = 1 * u.s
-    gammas, source_alt, source_az = load_signal_events(gammas_path, assumed_obs_time=t_obs)
+    _, source_alt, source_az = load_signal_events(gammas_path, assumed_obs_time=t_obs)
     background = load_background_events(
         protons_path, electrons_path, source_alt, source_az, assumed_obs_time=t_obs
     )
 
-    n_bins = 20
-    e_min, e_max = 0.02 * u.TeV, 200 * u.TeV
-    bin_edges, _, _ = make_energy_bins(e_min=e_min, e_max=e_max, bins=n_bins, centering='log')
+    e_min, e_max = 0.008 * u.TeV, 200 * u.TeV
+    bin_edges, _, _ = make_default_cta_binning(e_min=e_min, e_max=e_max)
     print(len(background))
     if cuts_path:
         background = apply_cuts(background, cuts_path, theta_cuts=True)
+        df = pd.read_csv(cuts_path)
+        energies = np.sqrt(df.e_min * df.e_max)
+        f_radii_deg = create_interpolated_function(energies, df.theta_cut)
+
+        radii_radians = np.deg2rad(f_radii_deg(background.gamma_energy_prediction_mean))
+        # solid_angles = 2 * np.pi * (1 - np.cos(radii_radians)) #* u.sr
+        solid_angles = 2 * np.pi * (1 - np.cos(np.deg2rad(10))) 
+        solid_angles *= 1/(4*np.pi)
     print(len(background))
-    # from IPython import embed; embed()
+
     fig, ax = plt.subplots()
-    ax.hist(background.gamma_energy_prediction_mean, bins=bin_edges, weights=background.weight, histtype='step', lw=2)
-    ax.hist(background.gamma_energy_prediction_mean, bins=bin_edges, weights=np.ones_like(background.weight)/18358000000.0, histtype='step', lw=2)
-    # ax.hist(background, bins=bin_edges, weight=background.weight)
+    w = (background.weight) * solid_angles
+    # from IPython import embed; embed()
+    ax.hist(background.gamma_energy_prediction_mean, bins=bin_edges, weights=w, histtype='step', lw=2, )
+
     if reference:
         plot_refrence(ax)
     

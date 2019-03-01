@@ -5,7 +5,7 @@ import pandas as pd
 from astropy.stats import binom_conf_interval
 import astropy.units as u
 
-from cta_plots import make_energy_bins, load_effective_area_requirement
+from cta_plots import make_default_cta_binning, load_effective_area_requirement
 from cta_plots.mc.spectrum import MCSpectrum
 from cta_plots.colors import color_cycle
 from fact.io import read_data
@@ -18,14 +18,15 @@ from fact.io import read_data
 @click.option('-b', '--n_bins', default=20, show_default=True)
 @click.option('-m', '--multiplicity', default=2)
 @click.option('-t', '--threshold', default=0.0, show_default=True, help='prediction threshold to apply', multiple=True)
+@click.option('-p', '--cuts_path', type=click.Path(exists=True))
 @click.option('--reference/--no-reference', default=True)
-def main(input_file, label, output, n_bins, multiplicity, threshold, reference):
+def main(input_file, label, output, n_bins, multiplicity, threshold, cuts_path,  reference):
 
-    bins, bin_center, bin_widths = make_energy_bins(e_min=0.008 * u.TeV, e_max=200 * u.TeV, bins=n_bins)
+    bins, bin_center, bin_widths = make_default_cta_binning(e_min=0.005 * u.TeV)
 
-    gammas_complete = read_data(input_file, key='array_events')
+    gammas = read_data(input_file, key='array_events')
     if multiplicity > 2:
-        gammas_complete = gammas_complete.query(f'num_triggered_telescopes >= {multiplicity}').copy()
+        gammas = gammas.query(f'num_triggered_telescopes >= {multiplicity}').copy()
 
     runs = read_data(input_file, key='runs')
     mc_production = MCSpectrum.from_cta_runs(runs)
@@ -36,9 +37,9 @@ def main(input_file, label, output, n_bins, multiplicity, threshold, reference):
     for t, c, l in zip(threshold, color_cycle, label):
 
         if t > 0:
-            gammas = gammas_complete.copy().loc[gammas_complete.gamma_prediction_mean >= t]
+            gammas = gammas.copy().loc[gammas.gamma_prediction_mean >= t]
         else:
-            gammas = gammas_complete.copy()
+            gammas = gammas.copy()
         gammas_energy = gammas.gamma_energy_prediction_mean.values
 
         hist_all = mc_production.expected_events_for_bins(energy_bins=bins)

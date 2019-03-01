@@ -5,7 +5,7 @@ import numpy as np
 import astropy.units as u
 from scipy.stats import binned_statistic
 import fact.io
-from cta_plots import make_energy_bins, load_energy_resolution_requirement
+from cta_plots import make_default_cta_binning, load_energy_resolution_requirement
 from matplotlib.colors import PowerNorm
 from cta_plots.colors import default_cmap, main_color
 import os
@@ -18,9 +18,8 @@ import os
 @click.option('-c', '--color', default=main_color)
 def main(input_dl3_file, output, threshold, multiplicity, color, ):
     
-    n_bins = 20
-    e_min, e_max = 0.02 * u.TeV, 200 * u.TeV
-    bins, bin_center, _ = make_energy_bins(e_min=e_min, e_max=e_max, bins=n_bins, centering='log')
+    e_min, e_max = 0.005 * u.TeV, 200 * u.TeV
+    bins, bin_center, _ = make_default_cta_binning(e_min=e_min, e_max=e_max)
     
     columns = ['array_event_id', 'mc_energy', 'gamma_energy_prediction_mean', 'num_triggered_telescopes']
 

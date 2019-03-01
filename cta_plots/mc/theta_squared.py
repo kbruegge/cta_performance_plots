@@ -12,7 +12,7 @@ from cta_plots.coordinate_utils import (
 from cta_plots.mc.spectrum import MCSpectrum, CrabSpectrum, CosmicRaySpectrum, CTAElectronSpectrum
 import matplotlib.offsetbox as offsetbox
 from fact.io import read_data
-from cta_plots.coordinate_utils import load_signal_events, load_background_events, ELECTRON_TYPE
+from cta_plots import load_signal_events, load_background_events, ELECTRON_TYPE
 from cta_plots.coordinate_utils import find_best_detection_significance
 
 
@@ -29,10 +29,10 @@ def main(gammas_path, protons_path, electrons_path, output, n_jobs):
     gammas, source_alt, source_az = load_signal_events(gammas_path, assumed_obs_time=t_obs)
     background = load_background_events(protons_path, electrons_path, source_alt, source_az,  assumed_obs_time=t_obs,)
 
-    theta_square_cuts = np.arange(0.01, 0.35, 0.05)
-    prediction_cuts = np.arange(0.4, 1, 0.1)
+    theta_square_cuts = np.arange(0.01, 0.35, 0.01)
+    prediction_cuts = np.arange(0.4, 1, 0.025)
 
-    best_prediction_cut, best_theta_square_cut, best_significance = find_best_detection_significance(
+    best_prediction_cut, best_theta_square_cut, best_significance, _ = find_best_detection_significance(
         theta_square_cuts, prediction_cuts, gammas, background, alpha=1
     )
 

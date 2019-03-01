@@ -36,73 +36,6 @@ def calculate_distance_to_point_source(df, source_alt, source_az):
     return distance
 
 
-
-def load_signal_events(gammas_path, assumed_obs_time=30 * u.min):
-    crab_spectrum = CrabSpectrum()
-
-    gamma_runs = read_data(gammas_path, key='runs')
-
-    if (gamma_runs.mc_diffuse == 1).any():
-        print(Fore.RED + 'Data given at {} contains diffuse gammas.')
-        print(Fore.RED + 'Need point-like gammas to do theta square plot')
-        print(Fore.RESET)
-        raise ValueError
-    
-    gammas = read_data(gammas_path, key='array_events')
-    
-    mc_production_gamma = MCSpectrum.from_cta_runs(gamma_runs)
-
-    source_az = gammas.mc_az.iloc[0] * u.deg
-    source_alt = gammas.mc_alt.iloc[0] * u.deg
-
-    gammas['theta'] = (
-        calculate_distance_to_point_source(gammas, source_alt=source_alt, source_az=source_az)
-        .to(u.deg)
-        .value
-    )
-
-    gammas['weight'] = mc_production_gamma.reweigh_to_other_spectrum(
-        crab_spectrum, gammas.mc_energy.values * u.TeV, t_assumed_obs=assumed_obs_time
-    )
-
-    return gammas, source_alt, source_az
-
-def load_background_events(protons_path, electrons_path,  source_alt, source_az, assumed_obs_time=30 * u.min):
-    cosmic_ray_spectrum = CosmicRaySpectrum()
-    electron_spectrum = CTAElectronSpectrum()
-
-    protons = read_data(protons_path, key='array_events')
-    protons['theta'] = (
-        calculate_distance_to_point_source(protons, source_alt=source_alt, source_az=source_az)
-        .to(u.deg)
-        .value
-    )
-    proton_runs = read_data(protons_path, key='runs')
-    mc_production_proton = MCSpectrum.from_cta_runs(proton_runs)
-    protons['weight'] = mc_production_proton.reweigh_to_other_spectrum(
-        cosmic_ray_spectrum, protons.mc_energy.values * u.TeV, t_assumed_obs=assumed_obs_time
-    )
-    protons['type'] = PROTON_TYPE
-
-    
-    electron_runs = read_data(electrons_path, key='runs')
-    mc_production_electrons = MCSpectrum.from_cta_runs(electron_runs)
-    electrons = read_data(electrons_path, key='array_events')
-    electrons['weight'] = mc_production_electrons.reweigh_to_other_spectrum(
-        electron_spectrum, electrons.mc_energy.values * u.TeV, t_assumed_obs=assumed_obs_time
-    )
-    electrons['theta'] = (
-        calculate_distance_to_point_source(
-            electrons, source_alt=source_alt, source_az=source_az
-        )
-        .to(u.deg)
-        .value
-    )
-    electrons['type'] = ELECTRON_TYPE
-
-    return pd.concat([protons, electrons], sort=False)
-
-
 def find_best_detection_significance(theta_square_cuts, prediction_cuts, signal_events, background_events, alpha=1, silent=False):
 
     # print(signal_events.gamma_energy_prediction_mean.mean())
@@ -113,15 +46,17 @@ def find_best_detection_significance(theta_square_cuts, prediction_cuts, signal_
     background_events = background_events.copy()[m]
 
     rs = []
-    for pc in tqdm(prediction_cuts, disable=silent):
-        m = (signal_events.gamma_prediction_mean >= pc)
-        selected_signal = signal_events[m]
-        m = (background_events.gamma_prediction_mean >= pc)
-        selected_background = background_events[m]
-        for tc in tqdm(theta_square_cuts, disable=silent):
-            significance = calculate_significance(selected_signal, selected_background, tc, alpha=alpha)
-            rs.append([significance, tc, pc])
-    
+    for mult in tqdm([4], disable=silent):
+        for pc in tqdm(prediction_cuts, disable=silent):
+            m = (signal_events.gamma_prediction_mean >= pc) & (signal_events.num_triggered_telescopes >= mult)
+            selected_signal = signal_events[m]
+            
+            m = (background_events.gamma_prediction_mean >= pc) & (background_events.num_triggered_telescopes >= mult)
+            selected_background = background_events[m]
+            for tc in tqdm(theta_square_cuts, disable=silent):
+                significance = calculate_significance(selected_signal, selected_background, tc, alpha=alpha)
+                rs.append([significance, tc, pc, mult])
+        
     # print(signal_events.gamma_energy_prediction_mean.mean())
     # if (signal_events.gamma_energy_prediction_mean.mean() > 50) and (signal_events.gamma_energy_prediction_mean.mean() < 70):
     #     from IPython import embed; embed()
@@ -130,7 +65,7 @@ def find_best_detection_significance(theta_square_cuts, prediction_cuts, signal_
         print(Fore.YELLOW +  ' All significances are zero.')
         print(Fore.RESET)
     max_index = np.argmax(significances)
-    best_significance, best_theta_square_cut, best_prediction_cut = rs[max_index]
+    best_significance, best_theta_square_cut, best_prediction_cut, best_mult = rs[max_index]
 
     # if True:
     #     # print()
@@ -144,7 +79,7 @@ def find_best_detection_significance(theta_square_cuts, prediction_cuts, signal_
 
 
 
-    return best_prediction_cut, best_theta_square_cut, best_significance
+    return best_prediction_cut, best_theta_square_cut, best_significance, best_mult
 
 
 def calculate_n_signal(signal_events, theta_square_cut, return_unweighted=False):

@@ -29,7 +29,7 @@ setup(
         'tables',
         'tqdm',
         'seaborn',
-	'colorama',
+        'colorama',
     ],
     zip_safe=False,
     entry_points={
@@ -39,6 +39,7 @@ setup(
             'cta_plot_h_max_distance = cta_plots.mc.h_max_distance:main',
             'cta_plot_h_max = cta_plots.mc.h_max:main',
             'cta_plot_energy_resolution = cta_plots.mc.energy_resolution:main',
+            'cta_plot_energy_bias = cta_plots.mc.energy_bias:main',
             'cta_plot_energy_migration = cta_plots.mc.energy_migration:main',
             'cta_plot_angular_resolution = cta_plots.mc.angular_resolution_vs_energy:main',
             'cta_plot_impact_distance = cta_plots.mc.impact_distance:main',

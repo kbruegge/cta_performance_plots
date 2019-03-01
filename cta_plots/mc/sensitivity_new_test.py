@@ -1,7 +1,6 @@
 import astropy.units as u
 from cta_plots.mc.spectrum import CrabSpectrum
 
-from cta_plots import make_energy_bins
 from fact.analysis import li_ma_significance
 
 import click
@@ -17,9 +16,10 @@ import matplotlib.pyplot as plt
 from scipy.optimize import brute
 from scipy.optimize import minimize_scalar
 from tqdm import tqdm
+from cta_plots import make_default_cta_binning
 from cta_plots import load_sensitivity_reference, load_sensitivity_requirement
 from cta_plots.coordinate_utils import find_best_detection_significance, calculate_n_signal, calculate_n_off
-from cta_plots.coordinate_utils import load_signal_events, load_background_events
+from cta_plots import load_signal_events, load_background_events
 
 from colorama import Fore
 
@@ -60,6 +60,8 @@ def calc_relative_sensitivity(gammas, background, bin_edges, alpha=0.2):
     relative_sensitivities = []
     thresholds = []
     thetas = []
+    significances = []
+    multiplicities = []
 
     theta_square_cuts = np.arange(0.005, 0.2, 0.005)
     prediction_cuts = np.arange(0.2, 1, 0.05)
@@ -71,7 +73,7 @@ def calc_relative_sensitivity(gammas, background, bin_edges, alpha=0.2):
     b = background.groupby(groups)
 
     for (_, signal_in_range), (_, background_in_range) in tqdm(zip(g, b), total=len(bin_edges) - 1):
-        best_prediction_cut, best_theta_square_cut, best_significance = find_best_detection_significance(
+        best_prediction_cut, best_theta_square_cut, best_significance, best_mult = find_best_detection_significance(
             theta_square_cuts, prediction_cuts, signal_in_range, background_in_range, alpha=alpha
         )
         gammas_gammalike = signal_in_range[
@@ -94,6 +96,8 @@ def calc_relative_sensitivity(gammas, background, bin_edges, alpha=0.2):
         relative_sensitivities.append(rs)
         thresholds.append(best_prediction_cut)
         thetas.append(np.sqrt(best_theta_square_cut))
+        significances.append(best_significance)
+        multiplicities.append(best_mult)
 
     m, l, h = np.array(relative_sensitivities).T
     d = {
@@ -102,8 +106,12 @@ def calc_relative_sensitivity(gammas, background, bin_edges, alpha=0.2):
         'sensitivity_high': h,
         'threshold': thresholds,
         'theta': thetas,
+        'multiplicity': multiplicities,
+        'significance': significances,
         'e_min': bin_edges[:-1],
         'e_max': bin_edges[1:],
+        
+
     }
     return pd.DataFrame(d)
 
@@ -193,22 +201,15 @@ def main(
         protons_path, electrons_path, source_alt, source_az, assumed_obs_time=t_obs
     )
 
-    if multiplicity > 2:
-        gammas = gammas.query(f'num_triggered_telescopes >= {multiplicity}')
-        background = background.query(f'num_triggered_telescopes >= {multiplicity}')
-        label = f'This Analysis. Multiplicity > {multiplicity}'
-    else:
-        label = 'This Analysis'
 
-    n_bins = 20
-    e_min, e_max = 0.02 * u.TeV, 200 * u.TeV
-    bin_edges, bin_center, _ = make_energy_bins(e_min=e_min, e_max=e_max, bins=n_bins, centering='log')
+    e_min, e_max = 0.008 * u.TeV, 200 * u.TeV
+    bin_edges, bin_center, _ = make_default_cta_binning(e_min=e_min, e_max=e_max)
 
     df_sensitivity = calc_relative_sensitivity(gammas, background, bin_edges, alpha=0.2)
-
+    print(df_sensitivity)
     # rs_mult_extrapolate = calc_relative_sensitivity(gammas, background, bin_edges, method=method, alpha=0.2)
 
-    ax = plot_sensitivity(df_sensitivity, bin_edges, bin_center, color=color, label=label)
+    ax = plot_sensitivity(df_sensitivity, bin_edges, bin_center, color=color)
 
     if reference:
         plot_refrence(ax)

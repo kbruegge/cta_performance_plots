@@ -436,6 +436,17 @@ class MCSpectrum(Spectrum):
         assert w.si.unit.is_unity() is True
         return w.value
 
+    def equivalent_obstime(self, other_spectrum):   
+        n_events = self.total_showers_simulated
+        integral_flux = other_spectrum._integral(self.e_min, self.e_max)
+        area = self.generation_area
+        t =  n_events / (area * integral_flux)
+        if self.generator_solid_angle and self.generator_solid_angle.to_value(u.deg) > 0:
+            solid_angle = self.generator_solid_angle
+            solid_angle = (1 - np.cos(solid_angle)) * 2 * np.pi * u.sr
+            t /= solid_angle
+        return t.to(u.s)
+
 
 
 if __name__ == '__main__':
@@ -453,17 +464,43 @@ if __name__ == '__main__':
 
         m = r > (1 - 0.5 * f(simulated_energies.to('MeV').value))
         print(f'total trigger efficiency: {m.sum() / len(simulated_energies)}')
-        return m
+        return m    
 
-    # executing this will create a plot which is usefull for checking if
-    # the reweighing works correctly
-    import matplotlib.pyplot as plt
+
+
+    crab = CrabSpectrum()
 
     e_min = 0.003 * u.TeV
     e_max = 300 * u.TeV
     area = 1 * u.km**2
-    N = 1000000
+    N = int(1E6)
     simulation_index = -2.0
+
+    mc = MCSpectrum(
+        e_min=e_min,
+        e_max=e_max,
+        total_showers_simulated=N,
+        generation_area=area,
+        index=simulation_index,
+    )
+
+    mc2 = MCSpectrum(
+        e_min=e_min,
+        e_max=e_max,
+        total_showers_simulated=N,
+        generation_area=area * 2,
+        index=simulation_index,
+    )
+    print(mc.expected_events(), N)
+    # assert mc2.expected_events() == N
+    assert mc.generation_area * 2 ==  mc2.generation_area
+    assert mc.expected_events() ==  mc2.expected_events()
+    assert mc.normalization_constant == mc2.normalization_constant * 2
+    assert mc.equivalent_obstime(crab) == mc2.equivalent_obstime(crab) * 2
+    # executing this will create a plot which is usefull for checking if
+    # the reweighing works correctly
+    import matplotlib.pyplot as plt
+
     t_assumed_obs = 50 * u.h
 
     energy_bins, bin_center, bin_width = make_energy_bins(e_min=e_min, e_max=e_max, bins=20)
@@ -478,7 +515,7 @@ if __name__ == '__main__':
 
     random_energies = mc.draw_energy_distribution(N)
 
-    crab = CrabSpectrum()
+
     events = crab.expected_events_for_bins(
         area=area,
         t_obs=t_assumed_obs,
@@ -538,7 +575,7 @@ if __name__ == '__main__':
 
     plt.title('Event Reweighing')
     plt.suptitle('Red line should be on black points')
-    plt.legend()
+    ax1.legend()
     ax1.set_yscale('log')
     ax1.set_xscale('log')
     ax1.set_xlabel('Energy in TeV')
