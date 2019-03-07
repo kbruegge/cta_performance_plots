@@ -51,6 +51,7 @@ setup(
             'cta_plot_importances = cta_plots.ml.importances:main',
             'cta_plot_theta_square = cta_plots.mc.theta_squared:main',
             'cta_plot_triggered_counts = cta_plots.mc.triggered_counts:main',
+            'cta_plot_irf = cta_plots.plot:cli',
             # 'cta_plot_fluxes = cta_plots.flux:main',
         ],
     }
