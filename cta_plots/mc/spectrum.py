@@ -206,6 +206,94 @@ class CosmicRaySpectrum(Spectrum):
         self.normalization_constant = normalization_constant
 
 
+class CrabLogParabola(Spectrum):
+    '''
+    See weird piece of shit code in CTA SVN 
+    https://forge.in2p3.fr/projects/cta/repository/revisions/30620/entry/ASWG/IRFMacros/PublicPerformanceMacros/trunk/PPP.C
+    '''
+
+    def __init__(self, index=-2.51, normalization_constant=3.99E-11 * u.Unit('cm-2 s-1 TeV-1'), beta=-0.21):
+        self.index = index
+        self.normalization_constant = normalization_constant
+        self.beta = beta
+
+    def flux(self, energy):
+
+        energy = energy.to('TeV')
+        
+        exponent = self.index + self.beta * np.log10(energy / u.TeV)
+        flux = self.normalization_constant * (energy / u.TeV)**(exponent)
+
+        return flux.to(1 / (u.TeV * u.s * u.cm**2))
+
+    def _integral(self, e_min, e_max):
+        a = e_min.to(u.TeV).value
+        b = e_max.to(u.TeV).value
+
+        result, _ = quad(lambda e: self.flux(e * u.TeV).value, a, b)
+
+        return result * self.normalization_constant.unit * u.TeV
+
+
+class CrabLogParabolaVeritas(Spectrum):
+    '''
+    See VERITAS paper
+    https://arxiv.org/pdf/1508.06442.pdf
+    '''
+
+    def __init__(self, index=-2.467, normalization_constant=3.75E-11 * u.Unit('cm-2 s-1 TeV-1'), beta=-0.16):
+        self.index = index
+        self.normalization_constant = normalization_constant
+        self.beta = beta
+
+    def flux(self, energy):
+
+        energy = energy.to('TeV')
+        
+        exponent = self.index + self.beta * np.log10(energy / u.TeV)
+        flux = self.normalization_constant * (energy / u.TeV)**(exponent)
+
+        return flux.to(1 / (u.TeV * u.s * u.cm**2))
+
+    def _integral(self, e_min, e_max):
+        a = e_min.to(u.TeV).value
+        b = e_max.to(u.TeV).value
+
+        result, _ = quad(lambda e: self.flux(e * u.TeV).value, a, b)
+
+        return result * self.normalization_constant.unit * u.TeV
+
+
+class CrabLogParabolaMagic(Spectrum):
+    '''
+    See MAGIC paper
+    https://arxiv.org/pdf/1406.6892.pdf
+    '''
+
+    def __init__(self, index=-2.47, normalization_constant=3.23E-11 * u.Unit('cm-2 s-1 TeV-1'), beta=-0.24):
+        self.index = index
+        self.normalization_constant = normalization_constant
+        self.beta = beta
+
+    def flux(self, energy):
+
+        energy = energy.to('TeV')
+        
+        exponent = self.index + self.beta * np.log10(energy / u.TeV)
+        flux = self.normalization_constant * (energy / u.TeV)**(exponent)
+
+        return flux.to(1 / (u.TeV * u.s * u.cm**2))
+
+    def _integral(self, e_min, e_max):
+        a = e_min.to(u.TeV).value
+        b = e_max.to(u.TeV).value
+
+        result, _ = quad(lambda e: self.flux(e * u.TeV).value, a, b)
+
+        return result * self.normalization_constant.unit * u.TeV
+
+
+
 class CTAElectronSpectrum(Spectrum):
     '''
     See the IRF ASWG report page 22 and 23
