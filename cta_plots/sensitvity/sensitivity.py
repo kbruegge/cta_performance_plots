@@ -9,13 +9,13 @@ from colorama import Fore
 
 from tqdm import tqdm
 
-from cta_plots import (load_background_events, load_sensitivity_reference,
-                       load_sensitivity_requirement, load_signal_events, load_energy_bias_function,
-                       make_default_cta_binning)
+from cta_plots import load_signal_events, load_energy_bias_function, load_background_events
 
-from . import (calculate_n_off, calculate_n_signal, find_cuts_for_best_sensitivity)
+from cta_plots.binning import make_default_cta_binning
+from cta_plots.sensitvity.plotting import plot_crab_flux, plot_reference, plot_requirement, plot_sensitivity
+from cta_plots.sensitvity import calculate_n_off, calculate_n_signal, find_cuts_for_best_sensitivity
 from cta_plots.mc.spectrum import CrabSpectrum
-from . import find_relative_sensitivity_poisson
+from cta_plots.sensitvity import find_relative_sensitivity_poisson
 
 crab = CrabSpectrum()
 
@@ -23,9 +23,13 @@ crab = CrabSpectrum()
 def calc_relative_sensitivity(gammas, background, bin_edges, alpha=0.2):
     results = []
 
-    theta_cuts = np.arange(0.02, 0.38, 0.02)
-    prediction_cuts = np.arange(0.3, 1, 0.02)
-    multiplicities = [2, 3, 4, 5, 6, 7, 8, 9]
+    # theta_cuts = np.arange(0.02, 0.38, 0.02)
+    # prediction_cuts = np.arange(0.3, 1, 0.02)
+    # multiplicities = [2, 3, 4, 5, 6, 7, 8, 9]
+
+    theta_cuts = np.arange(0.02, 0.38, 0.05)
+    prediction_cuts = np.arange(0.3, 1, 0.05)
+    multiplicities = [4, 5]
 
     groups = pd.cut(gammas.gamma_energy_prediction_mean, bins=bin_edges)
     g = gammas.groupby(groups)
@@ -79,61 +83,6 @@ def calc_relative_sensitivity(gammas, background, bin_edges, alpha=0.2):
     return results_df
 
 
-def plot_sensitivity(rs, bin_edges, bin_center, color='blue', ax=None, **kwargs):
-    sensitivity = rs.sensitivity.values * (crab.flux(bin_center) * bin_center ** 2).to(
-        u.erg / (u.s * u.cm ** 2)
-    )
-    sensitivity_low = rs.sensitivity_low.values * (crab.flux(bin_center) * bin_center ** 2).to(
-        u.erg / (u.s * u.cm ** 2)
-    )
-    sensitivity_high = rs.sensitivity_high.values * (crab.flux(bin_center) * bin_center ** 2).to(
-        u.erg / (u.s * u.cm ** 2)
-    )
-    xerr = [np.abs(bin_edges[:-1] - bin_center).value, np.abs(bin_edges[1:] - bin_center).value]
-    yerr = [np.abs(sensitivity - sensitivity_low).value, np.abs(sensitivity - sensitivity_high).value]
-
-    if not ax:
-        ax = plt.gca()
-    ax.errorbar(
-        bin_center.value, sensitivity.value, xerr=xerr, yerr=yerr, linestyle='', ecolor=color, **kwargs
-    )
-    return ax
-
-
-def plot_crab_flux(bin_edges, ax=None):
-    if not ax:
-        ax = plt.gca()
-    ax.plot(
-        bin_edges, crab.flux(bin_edges) * bin_edges ** 2, ls=':', lw=1, color='#a3a3a3', label='Crab Flux'
-    )
-    return ax
-
-
-def plot_requirement(ax=None):
-    df = load_sensitivity_requirement()
-    if not ax:
-        ax = plt.gca()
-    ax.plot(df.energy, df.sensitivity, color='#888888', lw=1.2, label='Requirement Offline')
-    ax.plot(df.energy, df.sensitivity * 3, color='#bebebe', lw=0.5, label='Requirement Real Time')
-    return ax
-
-
-def plot_reference(ax=None):
-    df = load_sensitivity_reference()
-    bin_edges = sorted(list(set(df.e_min) | set(df.e_max))) * u.TeV
-    bin_center = np.sqrt(bin_edges[:-1] * bin_edges[1:])
-    sensitivity = df.sensitivity.values * u.erg / (u.cm ** 2 * u.s)
-
-    if not ax:
-        ax = plt.gca()
-
-    xerr = [np.abs(bin_edges[:-1] - bin_center).value, np.abs(bin_edges[1:] - bin_center).value]
-    ax.errorbar(
-        bin_center.value, sensitivity.value, xerr=xerr, linestyle='', color='#3e3e3e', label='Reference'
-    )
-    return ax
-
-
 @click.command()
 @click.argument('gammas_path', type=click.Path(exists=True))
 @click.argument('protons_path', type=click.Path(exists=True))
@@ -167,7 +116,7 @@ def main(
     )
 
     if energy_bias_path:
-        energy_bias = load_energy_bias_function(energy_bias_path)
+        energy_bias = load_energy_bias_function(energy_bias_path, sigma=0)
         e_reco = gammas.gamma_energy_prediction_mean
         e_corrected = e_reco - e_reco * energy_bias(e_reco)
         gammas.gamma_energy_prediction_mean = e_corrected

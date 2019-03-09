@@ -11,7 +11,7 @@ from cta_plots.binning import make_default_cta_binning
 from cta_plots import load_signal_events, load_background_events, load_angular_resolution_function, load_energy_bias_function
 
 from cta_plots.sensitvity import find_relative_sensitivity_poisson, find_relative_sensitivity, check_validity
-from cta_plots.sensitvity.plotting import plot_crab_flux, plot_refrence, plot_requirement, plot_sensitivity
+from cta_plots.sensitvity.plotting import plot_crab_flux, plot_reference, plot_requirement, plot_sensitivity
 
 from cta_plots.mc.spectrum import CrabSpectrum
 
@@ -196,7 +196,7 @@ def main(
     ax = plot_sensitivity(df_sensitivity, bin_edges, bin_center, color=color, label=label)
 
     if reference:
-        plot_refrence(ax)
+        plot_reference(ax)
     if requirement:
         plot_requirement(ax)
     if flux:

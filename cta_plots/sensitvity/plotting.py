@@ -54,7 +54,7 @@ def plot_requirement(ax=None):
     return ax
 
 
-def plot_refrence(ax=None):
+def plot_reference(ax=None):
     df = load_sensitivity_reference()
     bin_edges = sorted(list(set(df.e_min) | set(df.e_max))) * u.TeV
     bin_center = np.sqrt(bin_edges[:-1] * bin_edges[1:])
