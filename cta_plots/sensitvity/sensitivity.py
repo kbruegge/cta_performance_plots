@@ -23,13 +23,9 @@ crab = CrabSpectrum()
 def calc_relative_sensitivity(gammas, background, bin_edges, alpha=0.2):
     results = []
 
-    # theta_cuts = np.arange(0.02, 0.38, 0.02)
-    # prediction_cuts = np.arange(0.3, 1, 0.02)
-    # multiplicities = [2, 3, 4, 5, 6, 7, 8, 9]
-
-    theta_cuts = np.arange(0.02, 0.38, 0.05)
-    prediction_cuts = np.arange(0.3, 1, 0.05)
-    multiplicities = [4, 5]
+    theta_cuts = np.arange(0.01, 0.38, 0.01)
+    prediction_cuts = np.arange(0.0, 1, 0.01)
+    multiplicities = [2, 3, 4, 5, 6, 7, 8, 9, 10]
 
     groups = pd.cut(gammas.gamma_energy_prediction_mean, bins=bin_edges)
     g = gammas.groupby(groups)
