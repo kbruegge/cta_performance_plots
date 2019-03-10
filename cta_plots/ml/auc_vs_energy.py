@@ -1,52 +1,43 @@
-import click
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from sklearn.metrics import roc_auc_score
 from tqdm import tqdm
 from ..colors import telescope_color
-from .. import make_energy_bins
+from ..binning import make_default_cta_binning
 import astropy.units as u
 
 import fact.io
 
-columns = ['array_event_id', 'gamma_prediction', 'telescope_type_id', 'run_id']
-
+columns = ['array_event_id', 'gamma_prediction', 'gamma_energy_prediction', 'telescope_type_id', 'run_id']
+columns_array = ['run_id', 'array_event_id', 'mc_energy', 'total_intensity']
 id_to_name = {1: 'LST', 2: 'MST', 3: 'SST'}
 name_to_id = {'LST': 1, 'MST': 2, 'SST': 3}
 
 
-@click.command()
-@click.argument(
-    'predicted_gammas', type=click.Path(
-        exists=True,
-        dir_okay=False,
-    ))
-@click.argument(
-    'predicted_protons', type=click.Path(
-        exists=True,
-        dir_okay=False,
-    ))
-@click.option(
-    '-o', '--output', type=click.Path(
-        exists=False,
-        dir_okay=False,
-    ))
-@click.option('-b', '--n_bins', default=20, help='number of energy bins to plot')
-@click.option('--sample/--no-sample', default=True, help='Whether to sample bkg events from all energies')
-def main(predicted_gammas, predicted_protons, output, n_bins, sample):
+def plot_auc_vs_energy(predicted_gammas, predicted_protons, e_reco=False, sample=False, ax=None):
+
     telecope_events = fact.io.read_data(predicted_gammas, key='telescope_events', columns=columns, last=1000000).dropna()
-    array_events = fact.io.read_data(predicted_gammas, key='array_events', columns=['array_event_id', 'mc_energy', 'total_intensity'])
-    gammas = pd.merge(telecope_events, array_events, on='array_event_id')
+    array_events = fact.io.read_data(predicted_gammas, key='array_events', columns=columns_array)
+    gammas = pd.merge(telecope_events, array_events, on=['run_id', 'array_event_id'])
 
     telecope_events = fact.io.read_data(predicted_protons, key='telescope_events', columns=columns, last=1000000).dropna()
-    array_events = fact.io.read_data(predicted_protons, key='array_events', columns=['array_event_id', 'mc_energy', 'total_intensity'])
-    protons = pd.merge(telecope_events, array_events, on='array_event_id')
+    array_events = fact.io.read_data(predicted_protons, key='array_events', columns=columns_array)
+    protons = pd.merge(telecope_events, array_events, on=['run_id', 'array_event_id'])
 
-    bins, bin_center, bin_widths = make_energy_bins(e_min=0.008 * u.TeV, e_max=200 * u.TeV, bins=n_bins)
+    bins, bin_center, bin_widths = make_default_cta_binning(e_min=0.008 * u.TeV, e_max=300 * u.TeV)
 
-    gammas['energy_bin'] = pd.cut(gammas.mc_energy, bins)
-    protons['energy_bin'] = pd.cut(protons.mc_energy, bins)
+    if e_reco:
+        key = 'gamma_energy_prediction'
+    else:
+        key = 'mc_energy'    
+
+    gammas['energy_bin'] = pd.cut(gammas[key], bins)
+    protons['energy_bin'] = pd.cut(protons[key], bins)
+
+    if not ax:
+        fig, ax = plt.subplots(1, 1, figsize=(10, 7),)
+
 
     for tel_type in ['SST', 'MST', 'LST']:
         aucs = []
@@ -58,7 +49,7 @@ def main(predicted_gammas, predicted_protons, output, n_bins, sample):
             else:
                 tel_protons = protons[(protons.energy_bin == b) & (protons.telescope_type_id == name_to_id[tel_type])]
 
-            if len(tel_gammas) < 30 or len(tel_protons) < 30:
+            if len(tel_gammas) < 100 or len(tel_protons) < 100:
                 aucs.append(np.nan)
             else:
                 mean_prediction_gammas = tel_gammas.groupby(['array_event_id', 'run_id'])['gamma_prediction'].mean()
@@ -73,7 +64,7 @@ def main(predicted_gammas, predicted_protons, output, n_bins, sample):
                 aucs.append(roc_auc_score(y_true, y_score))
 
 
-        plt.errorbar(
+        ax.errorbar(
             bin_center.value,
             aucs,
             xerr=bin_widths.value / 2.0,
@@ -85,18 +76,14 @@ def main(predicted_gammas, predicted_protons, output, n_bins, sample):
             color=telescope_color[tel_type],
         )
 
-    # plt.ylim([0.93, 1])
-    plt.xscale('log')
-    plt.xlabel(r'$E_{True} / TeV$')
-    plt.ylabel('Area Under RoC Curve')
-    plt.legend()
-    # add_rectangles(plt.gca())
-    plt.tight_layout()
-    if output:
-        plt.savefig(output)
+    ax.set_xscale('log')
+
+    if e_reco:
+        label = r'$E_{Reco} / TeV$'
     else:
-        plt.show()
-
-
-if __name__ == '__main__':
-    main()
+        label = r'$E_{True} / TeV$'
+    ax.set_xlabel(label)
+    ax.set_ylabel('Area Under RoC Curve')
+    ax.legend()
+    return ax
+    # add_rectangles(plt.gca())

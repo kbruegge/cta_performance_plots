@@ -1,4 +1,3 @@
-import click
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
@@ -33,24 +32,7 @@ def add_rectangles(ax, offset=0.1):
     ax.add_patch(rect)
 
 
-
-@click.command()
-@click.argument(
-    'predicted_gammas', type=click.Path(
-        exists=True,
-        dir_okay=False,
-    ))
-@click.argument(
-    'predicted_protons', type=click.Path(
-        exists=True,
-        dir_okay=False,
-    ))
-@click.option(
-    '-o', '--output', type=click.Path(
-        exists=False,
-        dir_okay=False,
-    ))
-def main(predicted_gammas, predicted_protons, output):
+def plot_auc(predicted_gammas, predicted_protons, ax=None, inset=False):
     gammas = fact.io.read_data(predicted_gammas, key='array_events', columns=['gamma_prediction_mean']).dropna()
     mean_prediction_gammas = gammas.gamma_prediction_mean
     gamma_labels = np.ones_like(mean_prediction_gammas)
@@ -65,11 +47,14 @@ def main(predicted_gammas, predicted_protons, output):
     fpr, tpr, _ = roc_curve(y_true, y_score, pos_label=1)
     auc = roc_auc_score(y_true, y_score)
 
-    plt.plot(fpr, tpr, lw=2)
+    if not ax:
+        fig, ax = plt.subplots(1, 1, figsize=(10, 7),)
 
-    add_rectangles(plt.gca())
+    ax.plot(fpr, tpr, lw=2)
 
-    plt.text(
+    add_rectangles(ax)
+
+    ax.text(
         0.95,
         0.1,
         'Area Under Curve: ${:.4f}$'.format(auc),
@@ -79,13 +64,15 @@ def main(predicted_gammas, predicted_protons, output):
         fontsize=11
     )
 
-    if False:
-        ax = plt.gca()
+    ax.set_xlabel('false positive rate')
+    ax.set_ylabel('true positive rate')
+
+    if inset:
         axins = zoomed_inset_axes(ax, 2, loc='upper center')  # zoom = 6
         axins.plot(fpr, tpr, lw=2)
 
         # sub region of the original image
-        x1, x2, y1, y2 = 0.8, 1, 0, 0.5
+        x1, x2, y1, y2 = 0.05, 0.2, 0.7, 1
         axins.set_xlim(x1, x2)
         axins.set_ylim(y1, y2)
         axins.set_xticks([])
@@ -95,14 +82,6 @@ def main(predicted_gammas, predicted_protons, output):
         # connecting lines between the bbox and the inset axes area
         mark_inset(ax, axins, loc1=3, loc2=4, ec='0.7')
 
-        plt.setp(axins.spines.values(), color='darkgray')
+        # axins.spines.color = 'darkgray'
 
-    plt.tight_layout()
-    if output:
-        plt.savefig(output)
-    else:
-        plt.show()
-
-
-if __name__ == '__main__':
-    main()
+    return ax

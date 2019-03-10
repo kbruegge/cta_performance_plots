@@ -1,36 +1,23 @@
-import click
 import numpy as np
 import matplotlib.pyplot as plt
 import fact.io
 from cycler import cycler
+from ..colors import telescope_color
 
 
-@click.command()
-@click.argument(
-    'predicted_gammas', type=click.Path(
-        exists=True,
-        dir_okay=False,
-    ))
-@click.argument(
-    'predicted_protons', type=click.Path(
-        exists=True,
-        dir_okay=False,
-    ))
-@click.option(
-    '-o', '--output_file', type=click.Path(
-        exists=False,
-        dir_okay=False,
-    ))
-@click.option('-w', '--what', default='mean', type=click.Choice(['per-telescope', 'mean', 'single', 'median', 'weighted-mean', 'min', 'max', 'brightest']))
-def main(predicted_gammas, predicted_protons, output_file, what):
+id_to_name = {1: 'LST', 2: 'MST', 3: 'SST'}
+name_to_id = {'LST': 1, 'MST': 2, 'SST': 3}
+
+
+def plot_prediction_histogram(predicted_gammas, predicted_protons, what, ax=None):
     bins = np.linspace(0, 1, 100)
-
+    if not ax:
+        fig, ax = plt.subplots(1)
     if what == 'mean':
         cols = ['gamma_prediction_mean']
         gammas = fact.io.read_data(predicted_gammas, key='array_events', columns=cols).dropna()
         protons = fact.io.read_data(predicted_protons, key='array_events', columns=cols).dropna()
 
-        fig, ax = plt.subplots(1)
         ax.hist(gammas.gamma_prediction_mean.values, bins=bins, histtype='step', density=True, linewidth=2)
         ax.hist(protons.gamma_prediction_mean.values, bins=bins, histtype='step', density=True, linewidth=2, color='gray')
 
@@ -51,7 +38,6 @@ def main(predicted_gammas, predicted_protons, output_file, what):
         pw = group['weighted_prediction'].sum() / group.weight.sum()
 
 
-        fig, ax = plt.subplots(1)
         ax.hist(gw, bins=bins, histtype='step', density=True, linewidth=2)
         ax.hist(pw, bins=bins, histtype='step', density=True, linewidth=2, color='gray')
 
@@ -104,7 +90,7 @@ def main(predicted_gammas, predicted_protons, output_file, what):
         g = gammas.groupby(['array_event_id', 'run_id'])['gamma_prediction'].median()
         p = protons.groupby(['array_event_id', 'run_id'])['gamma_prediction'].median()
 
-        fig, ax = plt.subplots(1)
+
         ax.hist(g, bins=bins, histtype='step', density=True, linewidth=2)
         ax.hist(p, bins=bins, histtype='step', density=True, linewidth=2)
 
@@ -113,34 +99,28 @@ def main(predicted_gammas, predicted_protons, output_file, what):
         gammas = fact.io.read_data(predicted_gammas, key='telescope_events', columns=cols).dropna()
         protons = fact.io.read_data(predicted_protons, key='telescope_events', columns=cols).dropna()
 
-        fig, ax = plt.subplots(1)
+
         ax.hist(gammas.gamma_prediction.values, bins=bins, histtype='step', density=True, linewidth=2)
         ax.hist(protons.gamma_prediction.values, bins=bins, histtype='step', density=True, linewidth=2)
 
     elif what == 'per-telescope':
-        cols = ['telescope_type_name', 'gamma_prediction']
+        cols = ['telescope_type_id', 'gamma_prediction']
         gammas = fact.io.read_data(predicted_gammas, key='telescope_events', columns=cols).dropna()
         protons = fact.io.read_data(predicted_protons, key='telescope_events', columns=cols).dropna()
 
-        fig, ax = plt.subplots(1)
-        for name, group in gammas.groupby('telescope_type_name', sort=False):
-            ax.hist(group.gamma_prediction.values, bins=bins, label=f'gamma prediction {name}', histtype='step', density=True, linewidth=2)
+
+        for type_id, group in gammas.groupby('telescope_type_id', sort=False):
+            name = id_to_name[type_id]
+            color = telescope_color[name]
+            ax.hist(group.gamma_prediction.values, bins=bins, label=f'gamma prediction {name}', histtype='step', density=True, linewidth=2, color=color)
 
         color_cycle = cycler(color=['gray', 'darkgray', 'black'])
         ax.set_prop_cycle(color_cycle)
-        for name, group in protons.groupby('telescope_type_name', sort=False):
+        for type_id, group in protons.groupby('telescope_type_id', sort=False):
+            name = id_to_name[type_id]
             ax.hist(group.gamma_prediction.values, bins=bins, label=f'proton prediction {name}', histtype='step', density=True)
 
-        plt.legend(loc='upper left')
+        ax.legend(loc='upper left')
 
-    plt.xlabel('Classifier Score')
-    plt.ylabel('Normalized Counts')
-    plt.tight_layout()
-    if output_file:
-        plt.savefig(output_file)
-    else:
-        plt.show()
-
-
-if __name__ == '__main__':
-    main()
+    ax.set_xlabel('Classifier Score')
+    ax.set_ylabel('Normalized Counts')

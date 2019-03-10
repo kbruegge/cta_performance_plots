@@ -10,6 +10,7 @@ from ..colors import telescope_color
 id_to_name = {1: 'LST', 2: 'MST', 3: 'SST'}
 name_to_id = {'LST': 1, 'MST': 2, 'SST': 3}
 
+
 def add_rectangles(ax, offset=0.1):
 
     kwargs = {
@@ -36,33 +37,15 @@ def add_rectangles(ax, offset=0.1):
     ax.add_patch(rect)
 
 
-
-@click.command()
-@click.argument(
-    'predicted_gammas', type=click.Path(
-        exists=True,
-        dir_okay=False,
-    ))
-@click.argument(
-    'predicted_protons', type=click.Path(
-        exists=True,
-        dir_okay=False,
-    ))
-
-@click.option(
-    '-w', '--what', type=click.Choice(['single', 'mean']), default='single')
-@click.option(
-    '-o', '--output', type=click.Path(
-        exists=False,
-        dir_okay=False,
-    ))
-@click.option('--box/--no-box', default=True)
-def main(predicted_gammas, predicted_protons, what, output, box):
+def plot_auc_per_type(predicted_gammas, predicted_protons, what, box, ax=None):
     cols = ['gamma_prediction', 'array_event_id', 'run_id', 'telescope_type_id']
 
     gammas = fact.io.read_data(predicted_gammas, key='telescope_events', columns=cols).dropna()
     protons = fact.io.read_data(predicted_protons, key='telescope_events', columns=cols).dropna()
-    
+
+    if not ax:
+        fig, ax = plt.subplots(1, 1, figsize=(10, 7),)
+
     for tel_type in ['LST', 'MST', 'SST']:
         tel_gammas = gammas.query(f'telescope_type_id == "{name_to_id[tel_type]}"')
         tel_protons = protons.query(f'telescope_type_id == "{name_to_id[tel_type]}"')
@@ -81,19 +64,7 @@ def main(predicted_gammas, predicted_protons, what, output, box):
 
         fpr, tpr, _ = roc_curve(y_true, y_score, pos_label=1)
         auc = roc_auc_score(y_true, y_score)
-        plt.plot(fpr, tpr, lw=2, label=f'AUC for {tel_type}:  {auc:{1}.{3}}', color=telescope_color[tel_type])
-
+        ax.plot(fpr, tpr, lw=2, label=f'AUC for {tel_type}:  {auc:{1}.{3}}', color=telescope_color[tel_type])
+        ax.legend()
     if box:
-        add_rectangles(plt.gca())
-    plt.legend()
-    plt.xlabel('false positive rate')
-    plt.ylabel('true positive rate')
-    plt.tight_layout()
-    if output:
-        plt.savefig(output)
-    else:
-        plt.show()
-
-
-if __name__ == '__main__':
-    main()
+        add_rectangles(ax)
