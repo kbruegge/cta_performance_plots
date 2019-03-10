@@ -44,15 +44,10 @@ setup(
             'cta_plot_angular_resolution = cta_plots.mc.angular_resolution_vs_energy:main',
             'cta_plot_impact_distance = cta_plots.mc.impact_distance:main',
             'cta_plot_impact = cta_plots.mc.impact:main',
-            'cta_plot_auc_per_type = cta_plots.ml.auc_per_type:main',
-            'cta_plot_auc = cta_plots.ml.auc:main',
-            'cta_plot_auc_vs_energy = cta_plots.ml.auc_vs_energy:main',
-            'cta_plot_prediction_hist = cta_plots.ml.prediction_hist:main',
-            'cta_plot_importances = cta_plots.ml.importances:main',
             'cta_plot_theta_square = cta_plots.mc.theta_squared:main',
             'cta_plot_triggered_counts = cta_plots.mc.triggered_counts:main',
-            'cta_plot_irf = cta_plots.plot:cli',
-            # 'cta_plot_fluxes = cta_plots.flux:main',
+            'cta_plot_ml = cta_plots.ml.ml_cli:cli',
+            'cta_plot_irf = cta_plots.irf.irf_cli:cli',
         ],
     }
 )
