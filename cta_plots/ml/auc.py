@@ -8,12 +8,7 @@ from mpl_toolkits.axes_grid1.inset_locator import zoomed_inset_axes, mark_inset
 
 def add_rectangles(ax, offset=0.1):
 
-    kwargs = {
-        'linewidth': 1,
-        'edgecolor': 'white',
-        'facecolor': 'white',
-        'alpha': 0.6,
-    }
+    kwargs = {"linewidth": 1, "edgecolor": "white", "facecolor": "white", "alpha": 0.6}
 
     # left
     rect = patches.Rectangle((0 - offset, 0), 0 + offset, 1 + offset, **kwargs)
@@ -33,11 +28,15 @@ def add_rectangles(ax, offset=0.1):
 
 
 def plot_auc(predicted_gammas, predicted_protons, ax=None, inset=False):
-    gammas = fact.io.read_data(predicted_gammas, key='array_events', columns=['gamma_prediction_mean']).dropna()
+    gammas = fact.io.read_data(
+        predicted_gammas, key="array_events", columns=["gamma_prediction_mean"]
+    ).dropna()
     mean_prediction_gammas = gammas.gamma_prediction_mean
     gamma_labels = np.ones_like(mean_prediction_gammas)
 
-    protons = fact.io.read_data(predicted_protons, key='array_events', columns=['gamma_prediction_mean']).dropna()
+    protons = fact.io.read_data(
+        predicted_protons, key="array_events", columns=["gamma_prediction_mean"]
+    ).dropna()
     mean_prediction_protons = protons.gamma_prediction_mean
     proton_labels = np.zeros_like(mean_prediction_protons)
 
@@ -48,7 +47,7 @@ def plot_auc(predicted_gammas, predicted_protons, ax=None, inset=False):
     auc = roc_auc_score(y_true, y_score)
 
     if not ax:
-        fig, ax = plt.subplots(1, 1, figsize=(10, 7),)
+        fig, ax = plt.subplots(1, 1, figsize=(10, 7))
 
     ax.plot(fpr, tpr, lw=2)
 
@@ -57,18 +56,18 @@ def plot_auc(predicted_gammas, predicted_protons, ax=None, inset=False):
     ax.text(
         0.95,
         0.1,
-        'Area Under Curve: ${:.4f}$'.format(auc),
-        verticalalignment='bottom',
-        horizontalalignment='right',
-        color='#404040',
-        fontsize=11
+        "Area Under Curve: ${:.4f}$".format(auc),
+        verticalalignment="bottom",
+        horizontalalignment="right",
+        color="#404040",
+        fontsize=11,
     )
 
-    ax.set_xlabel('false positive rate')
-    ax.set_ylabel('true positive rate')
+    ax.set_xlabel("false positive rate")
+    ax.set_ylabel("true positive rate")
 
     if inset:
-        axins = zoomed_inset_axes(ax, 2, loc='upper center')  # zoom = 6
+        axins = zoomed_inset_axes(ax, 2, loc="upper center")  # zoom = 6
         axins.plot(fpr, tpr, lw=2)
 
         # sub region of the original image
@@ -80,7 +79,7 @@ def plot_auc(predicted_gammas, predicted_protons, ax=None, inset=False):
 
         # draw a bbox of the region of the inset axes in the parent axes and
         # connecting lines between the bbox and the inset axes area
-        mark_inset(ax, axins, loc1=3, loc2=4, ec='0.7')
+        mark_inset(ax, axins, loc1=3, loc2=4, ec="0.7")
 
         # axins.spines.color = 'darkgray'
 

@@ -15,19 +15,21 @@ def plot_importances(model_path, color, ax=None):
     feature_importances = [est.feature_importances_ for est in model.estimators_]
 
     df = pd.DataFrame(data=feature_importances, columns=feature_names)
-    df = df.melt(var_name='feature', value_name='importance')
+    df = df.melt(var_name="feature", value_name="importance")
 
     if not ax:
-        fig, ax = plt.subplots(1, 1, figsize=(10, 7),)
+        fig, ax = plt.subplots(1, 1, figsize=(10, 7))
 
-    sns.boxplot(y='feature', x='importance', data=df, color='gray', fliersize=0, ax=ax)
-    sns.stripplot(y='feature', x='importance', data=df, jitter=True, color=color, alpha=0.3, ax=ax)
-    ax.spines['top'].set_visible(False)
-    ax.spines['right'].set_visible(False)
-    ax.spines['left'].set_visible(False)
+    sns.boxplot(y="feature", x="importance", data=df, color="gray", fliersize=0, ax=ax)
+    sns.stripplot(
+        y="feature", x="importance", data=df, jitter=True, color=color, alpha=0.3, ax=ax
+    )
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+    ax.spines["left"].set_visible(False)
 
-    ax.set_ylabel('')
-    ax.set_xlabel('Feature Importance')
-    ax.tick_params(axis='y', width=0)
+    ax.set_ylabel("")
+    ax.set_xlabel("Feature Importance")
+    ax.tick_params(axis="y", width=0)
 
     return ax
