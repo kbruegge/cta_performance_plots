@@ -27,7 +27,7 @@ def main(output, n_bins):
     plt.step(bins[0:-1], counts, where='post', color=next(color_cycle), label='CTA Proton Spectrum')
     
     spectrum = CrabSpectrum()
-    counts = spectrum.expected_events_for_bins(area=1*u.km**2, t_obs=1*u.h, energy_bins=bins, solid_angle=5*u.deg)
+    counts = spectrum.expected_events_for_bins(area= 1 * u.km**2, t_obs= 1 * u.h, energy_bins=bins, solid_angle= 5 * u.deg)
     plt.step(bins[0:-1], counts, where='post', color=next(color_cycle), label='Crab Nebula')
 
     plt.yscale('log')
