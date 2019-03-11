@@ -23,9 +23,9 @@ def make_energy_bins(energies=None, e_min=None, e_max=None, bins=10, centering='
     return bin_edges, bin_centers, bin_widths
 
 
-def make_default_cta_binning(e_min=0.02 * u.TeV, e_max=200 * u.TeV, centering='log', overflow=False):
+def make_default_cta_binning(e_min=0.02 * u.TeV, e_max=200 * u.TeV, centering='log', overflow=False, bins_per_decade=5):
 
-    bin_edges = np.logspace(np.log10(0.002), np.log10(2000), 31)
+    bin_edges = np.logspace(np.log10(0.002), np.log10(2000), 6 * bins_per_decade + 1)
     idx = np.searchsorted(bin_edges, [e_min.to_value(u.TeV), e_max.to_value(u.TeV)])
     max_idx = min(idx[1] + 1, len(bin_edges) - 1)
     bin_edges = bin_edges[idx[0]:max_idx]

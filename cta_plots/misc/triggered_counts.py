@@ -20,7 +20,7 @@ from fact.io import read_data
 @click.option('-t', '--threshold', default=0.0, show_default=True, help='prediction threshold to apply')
 def main(gamma_file, proton_file, electron_file, output, n_bins, threshold):
 
-    t_assumed_obs = 50*u.h
+    t_assumed_obs = 50 * u.h
     bins, bin_center, bin_widths = make_energy_bins(e_min=0.008 * u.TeV, e_max=200 * u.TeV, bins=n_bins)
     
     

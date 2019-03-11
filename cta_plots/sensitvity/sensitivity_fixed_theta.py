@@ -181,11 +181,11 @@ def main(
     elif energy_bias_path:
         energy_bias = load_energy_bias_function(energy_bias_path, sigma=0.01)
         e_reco = gammas.gamma_energy_prediction_mean
-        e_corrected = e_reco - e_reco * energy_bias(e_reco)
+        e_corrected = -(e_reco - e_reco * energy_bias(e_reco))
         gammas.gamma_energy_prediction_mean = e_corrected
 
         e_reco = background.gamma_energy_prediction_mean
-        e_corrected = e_reco - e_reco * energy_bias(e_reco)
+        e_corrected = -(e_reco - e_reco * energy_bias(e_reco))
         background.gamma_energy_prediction_mean = e_corrected
     else:
         print(Fore.YELLOW + 'Not correcting for energy bias' + Fore.RESET)

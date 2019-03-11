@@ -38,3 +38,4 @@ def load_effective_area_requirement(site='paranal'):
     )
     return df
 
+
