@@ -1,11 +1,8 @@
-from io import BytesIO
-
 import astropy.units as u
 import matplotlib.pyplot as plt
 import numpy as np
-import pandas as pd
-from pkg_resources import resource_string
 
+from . import load_sensitivity_reference, load_sensitivity_requirement
 from cta_plots.spectrum import CrabLogParabola, CrabSpectrum
 
 
@@ -45,6 +42,7 @@ def plot_reference(ax=None):
         bin_center.value, sensitivity.value, xerr=xerr, linestyle='', color='#3e3e3e', label='Reference'
     )
     return ax
+
 
 def plot_sensitivity(rs, bin_edges, bin_center, color='blue', ax=None, **kwargs):
     crab = CrabSpectrum()

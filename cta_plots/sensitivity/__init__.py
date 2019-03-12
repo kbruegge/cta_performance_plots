@@ -56,14 +56,14 @@ def load_sensitivity_requirement():
 def check_validity(n_signal, n_off, alpha=0.2):
     n_on = n_signal + alpha * n_off
 
-    enough_bkg_counts = n_off >= 10
+    enough_bkg_counts = alpha * n_off >= 10
 
     enough_signal_counts = n_signal >= 10
 
     # must be higher than 5 times the assumed bkg systematic uncertainty of 1 percent. (See aswg irf report)
     # https://forge.in2p3.fr/projects/cta_analysis-and-simulations/repository/changes/DOC/InternalReports/IRFReports/released/v1.1/cta-aswg-IRFreport.pdf
     systematic = n_signal > (n_off * 0.05)
-    
+
     required_excess = n_on > (alpha * n_off + 10)
 
     return enough_bkg_counts & enough_signal_counts & systematic & required_excess
@@ -122,13 +122,17 @@ def calculate_relative_sensitivity(signal_events, background_events, theta_cut, 
     n_signal, n_signal_count = calculate_n_signal(signal_events, theta_cut)
     n_off, n_off_count = calculate_n_off(background_events, theta_cut, alpha=alpha)
 
+    
     valid = check_validity(n_signal_count, n_off_count, alpha=alpha)
     valid &= check_validity(n_signal, n_off, alpha=alpha)
+    if n_off_count < 50:
+        print(n_off_count, valid)
     if valid:
         relative_sensitivity = find_relative_sensitivity(n_signal, n_off, alpha=alpha)
         return relative_sensitivity
     else:
         return np.inf
+
 
 
 def find_cuts_for_best_sensitivity(

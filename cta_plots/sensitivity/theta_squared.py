@@ -5,7 +5,7 @@ import astropy.units as u
 
 import matplotlib.offsetbox as offsetbox
 from cta_plots import load_signal_events, load_background_events, ELECTRON_TYPE
-from cta_plots.sensitivity import find_cuts_for_best_sensitivity
+from cta_plots.sensitivity.optimize import find_best_cuts
 
 
 @click.command()
@@ -13,7 +13,7 @@ from cta_plots.sensitivity import find_cuts_for_best_sensitivity
 @click.argument('protons_path', type=click.Path(exists=True))
 @click.argument('electrons_path', type=click.Path(exists=True))
 @click.option('-o', '--output', type=click.Path(exists=False))
-@click.option('-j', '--n_jobs', default=-4)
+@click.option('-j', '--n_jobs', default=4)
 def main(gammas_path, protons_path, electrons_path, output, n_jobs):
 
     t_obs = 5 * u.min
@@ -22,11 +22,11 @@ def main(gammas_path, protons_path, electrons_path, output, n_jobs):
     background = load_background_events(protons_path, electrons_path, source_alt, source_az, assumed_obs_time=t_obs,)
 
     theta_square_cuts = np.arange(0.01, 0.35, 0.01)
-    prediction_cuts = np.arange(0.1, 1, 0.05)
+    prediction_cuts = np.arange(0.0, 1, 0.05)
     multiplicities = [2, 3, 4, 5, 6, 7, 8]
 
-    best_prediction_cut, best_theta_square_cut, best_significance, _ = find_cuts_for_best_sensitivity(
-        theta_square_cuts, prediction_cuts, multiplicities, gammas, background, alpha=1
+    best_sensitivity, best_prediction_cut, best_theta_cut, best_significance, best_mult = find_best_cuts(
+        theta_square_cuts, prediction_cuts, multiplicities, gammas, background, alpha=1, criterion='significance', n_jobs=n_jobs
     )
 
     gammas_gammalike = gammas.query(f'gamma_prediction_mean > {best_prediction_cut}').copy()
@@ -52,13 +52,13 @@ def main(gammas_path, protons_path, electrons_path, output, n_jobs):
 
     ax.set_ylim([0, max(h_on + h_off) * 1.18])
     ax.axhline(y=h_off.mean(), color='C1', lw=1, alpha=0.7)
-    ax.axvline(x=best_theta_square_cut, color='gray', lw=1, alpha=0.7)
+    ax.axvline(x=best_theta_cut**2, color='gray', lw=1, alpha=0.7)
 
     textstr = '\n'.join(
         [
             f'Observation Time: {t_obs}',
             f'Prediction Threshold: {best_prediction_cut:.2f}',
-            f'Theta Square Cut: {(best_theta_square_cut):.2f}',
+            f'Theta Cut: {(best_theta_cut):.2f}',
             f'Significance: {best_significance:.2f}',
         ]
     )

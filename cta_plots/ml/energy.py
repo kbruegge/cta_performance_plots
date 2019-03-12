@@ -66,7 +66,7 @@ def plot_resolution(e_true, e_reco, color=main_color, reference=False, relative=
     ax.legend()
 
     df = pd.DataFrame({
-        'energy': bin_center,
+        'energy_prediction': bin_center,
         'resolution': iqr,
     })
     return ax, df
@@ -103,7 +103,7 @@ def plot_bias(e_true, e_reco, color=main_color, ax=None):
     ax.set_ylim([bins_y.min(), bins_y.max()])
 
     df = pd.DataFrame({
-        'energy': bin_center,
-        'mean_bias': mean_bias,
+        'energy_prediction': bin_center,
+        'bias': mean_bias,
     })
     return ax, df

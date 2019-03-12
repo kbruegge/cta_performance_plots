@@ -113,12 +113,9 @@ def energy_resolution(ctx, reconstructed_events, reference, relative, plot_e_rec
 
 @cli.command()
 @click.argument("reconstructed_events", type=click.Path())
-@click.option('--reference/--no-reference', default=False)
-@click.option('--relative/--no-relative', default=True)
-@click.option('--plot_e_reco', is_flag=True, default=False)
 @click.option('-c', '--cuts_path', type=click.Path(exists=True))
 @click.pass_context
-def energy_bias(ctx, reconstructed_events, reference, relative, plot_e_reco, cuts_path):
+def energy_bias(ctx, reconstructed_events, cuts_path):
     reconstructed_events = _load_data(reconstructed_events, dropna=True)
     if cuts_path:
         reconstructed_events = apply_cuts(reconstructed_events, cuts_path)
@@ -135,7 +132,7 @@ def energy_bias(ctx, reconstructed_events, reference, relative, plot_e_reco, cut
 @click.option(
     "-w",
     "--what",
-    default="mean",
+    default=["mean"],
     type=click.Choice(
         [
             "per-telescope",
@@ -154,7 +151,7 @@ def energy_bias(ctx, reconstructed_events, reference, relative, plot_e_reco, cut
 def auc(ctx, gammas, protons, what):
     gammas, protons = _load_telescope_data(gammas, protons)
     if len(what) == 1:
-        ax = plot_auc(gammas, protons, what=what, inset=False)
+        ax = plot_auc(gammas, protons, what=what[0], inset=False)
     else:
         fig, ax = plt.subplots(1, 1)
         for w in what:

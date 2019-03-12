@@ -59,7 +59,7 @@ def plot_angular_resolution(reconstructed_events, reference, plot_e_reco, ax=Non
     ax.legend()
 
     df = pd.DataFrame({
-        'energy': bin_centers,
+        'energy_prediction': bin_centers,
         'angular_resolution': b_68,
     })
     return ax, df
