@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 from pkg_resources import resource_string
 
-from cta_plots.mc.spectrum import CrabLogParabola, CrabSpectrum
+from cta_plots.spectrum import CrabLogParabola, CrabSpectrum
 
 
 def load_sensitivity_reference():

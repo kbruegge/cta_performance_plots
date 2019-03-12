@@ -12,10 +12,10 @@ from tqdm import tqdm
 from cta_plots import load_signal_events, load_energy_bias_function, load_background_events
 
 from cta_plots.binning import make_default_cta_binning
-from cta_plots.sensitvity.plotting import plot_crab_flux, plot_reference, plot_requirement, plot_sensitivity
-from cta_plots.sensitvity import calculate_n_off, calculate_n_signal, find_cuts_for_best_sensitivity
-from cta_plots.mc.spectrum import CrabSpectrum
-from cta_plots.sensitvity import find_relative_sensitivity_poisson
+from cta_plots.sensitivity.plotting import plot_crab_flux, plot_reference, plot_requirement, plot_sensitivity
+from cta_plots.sensitivity import calculate_n_off, calculate_n_signal, find_cuts_for_best_sensitivity
+from cta_plots.spectrum import CrabSpectrum
+from cta_plots.sensitivity import find_relative_sensitivity_poisson
 
 crab = CrabSpectrum()
 
