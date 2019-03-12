@@ -1,16 +1,16 @@
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 from scipy.stats import binned_statistic
 from matplotlib.colors import PowerNorm
 
 import astropy.units as u
 
-
-
-from cta_plots.colors import default_cmap, main_color, color_cycle 
+from cta_plots.colors import default_cmap, main_color, color_cycle
 from cta_plots.coordinate_utils import calculate_distance_to_true_source_position
 from cta_plots.binning import make_default_cta_binning
-from . import load_angular_resolution_requirement, add_colorbar_to_figure
+from . import load_angular_resolution_requirement
+from .. import add_colorbar_to_figure
 
 
 def plot_angular_resolution(reconstructed_events, reference, plot_e_reco, ax=None):
@@ -57,7 +57,12 @@ def plot_angular_resolution(reconstructed_events, reference, plot_e_reco, ax=Non
     else:
         ax.set_xlabel(r'$E_{True} / TeV$')
     ax.legend()
-    return ax
+
+    df = pd.DataFrame({
+        'energy': bin_centers,
+        'angular_resolution': b_68,
+    })
+    return ax, df
 
 
 
@@ -85,7 +90,6 @@ def plot_angular_resolution_per_multiplicity(reconstructed_events, reference, pl
 
         b_68, _, _ = binned_statistic(x, distance, statistic=lambda y: np.nanpercentile(y, 68), bins=bins)
 
-        # ax.error(bin_centers, b_68, lw=2, label=m, color=main_color, alpha=alpha, where='mid')
         ax.errorbar(
             bin_center.value,
             b_68,
@@ -95,7 +99,6 @@ def plot_angular_resolution_per_multiplicity(reconstructed_events, reference, pl
             ecolor=color,
             ms=0,
             capsize=0,
-            # alpha=alpha,
             label=m,
         )
 

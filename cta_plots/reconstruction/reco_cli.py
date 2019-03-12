@@ -1,3 +1,5 @@
+import os
+
 import click
 import numpy as np
 import matplotlib.pyplot as plt
@@ -9,13 +11,16 @@ from cta_plots import load_signal_events
 from cta_plots.colors import main_color, default_cmap
 
 
-def _apply_flags(ctx, ax):
+def _apply_flags(ctx, ax, data=None):
     if ctx.obj["YLIM"]:
         ax.set_ylim(ctx.obj["YLIM"])
 
     output = ctx.obj["OUTPUT"]
     if output:
         plt.savefig(output)
+        if data is not None:
+            n, _ = os.path.splitext(output)
+            data.to_csv(n + '.csv', index=False, na_rep='NaN', )
     else:
         plt.show()
 
@@ -79,8 +84,8 @@ def angular_resolution(ctx, reference, plot_e_reco, cuts_path):
     reconstructed_events = ctx.obj["DATA"]
     if cuts_path:
         reconstructed_events = apply_cuts(reconstructed_events, cuts_path, theta_cuts=False)
-    ax = plot_angular_resolution(reconstructed_events, reference, plot_e_reco)
-    _apply_flags(ctx, ax)
+    ax, df = plot_angular_resolution(reconstructed_events, reference, plot_e_reco)
+    _apply_flags(ctx, ax, data=df)
 
 
 @cli.command()

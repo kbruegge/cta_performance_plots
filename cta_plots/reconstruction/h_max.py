@@ -3,7 +3,7 @@ import numpy as np
 import astropy.units as u
 from scipy.stats import binned_statistic
 
-from . import add_colorbar_to_figure
+from .. import add_colorbar_to_figure
 from ..binning import make_default_cta_binning
 
 from matplotlib.colors import PowerNorm

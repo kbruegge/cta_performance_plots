@@ -7,7 +7,7 @@ import astropy.units as u
 from scipy.stats import binned_statistic
 
 from ..colors import default_cmap, main_color
-from . import add_colorbar_to_figure
+from .. import add_colorbar_to_figure
 from ..binning import make_default_cta_binning
 
 
