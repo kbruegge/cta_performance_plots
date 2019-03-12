@@ -9,29 +9,6 @@ from pkg_resources import resource_string
 from cta_plots.spectrum import CrabLogParabola, CrabSpectrum
 
 
-def load_sensitivity_reference():
-    path = '/ascii/CTA-Performance-prod3b-v1-South-20deg-50h-DiffSens.txt'
-    r = resource_string('cta_plots.resources', path)
-    df = pd.read_csv(
-        BytesIO(r), delimiter='\t\t', skiprows=10, names=['e_min', 'e_max', 'sensitivity'], engine='python'
-    )
-    return df
-
-
-def load_sensitivity_requirement():
-    path = 'sensitivity_requirement_south_50.txt'
-    r = resource_string('cta_plots.resources', path)
-    df = pd.read_csv(
-        BytesIO(r),
-        delim_whitespace=True,
-        names=['log_energy', 'sensitivity'],
-        index_col=False,
-        engine='python',
-    )
-    df['energy'] = 10 ** df.log_energy
-    return df
-
-
 def plot_crab_flux(bin_edges, ax=None, curved=True):
     if curved:
         crab = CrabLogParabola()
