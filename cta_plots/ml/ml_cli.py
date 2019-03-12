@@ -124,11 +124,40 @@ def energy_bias(ctx, reconstructed_events, reference, relative, plot_e_reco, cut
 @cli.command()
 @click.argument("gammas", type=click.Path())
 @click.argument("protons", type=click.Path())
+@click.option(
+    "-w",
+    "--what",
+    default="mean",
+    type=click.Choice(
+        [
+            "per-telescope",
+            "mean",
+            "single",
+            "median",
+            "weighted-mean",
+            "min",
+            "max",
+            "brightest",
+        ]
+    ),
+    multiple=True
+)
 @click.pass_context
-def auc(ctx, gammas, protons):
-    gamma_predicitons, proton_predictions = _load_predictions(gammas, protons)
-    ax = plot_auc(gamma_predicitons, proton_predictions, inset=False)
+def auc(ctx, gammas, protons, what):
+    gammas, protons = _load_telescope_data(gammas, protons)
+    if len(what) == 1:
+        ax = plot_auc(gammas, protons, what=what, inset=False)
+    else:
+        fig, ax = plt.subplots(1, 1)
+        for w in what:
+            ax = plot_auc(gammas, protons, what=w, ax=ax, label=w)
+
+        ax.set_xlim([-0.05, 1.05])
+        ax.set_ylim([-0.05, 1.05])
+
+    
     _apply_flags(ctx, ax)
+
 
 
 @cli.command()

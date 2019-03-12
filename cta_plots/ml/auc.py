@@ -34,14 +34,33 @@ def add_rectangles(ax, offset=0.1):
     ax.add_patch(rect)
 
 
-def plot_auc(predictions_gammas, predictions_protons, ax=None, inset=False):
-    mean_prediction_gammas = predictions_gammas
-    gamma_labels = np.ones_like(mean_prediction_gammas)
+def plot_auc(gammas, protons, what='mean', inset=False, label='', ax=None):
+    if what == "mean":
+        prediction_gammas = gammas.groupby(["array_event_id", "run_id"])["gamma_prediction"].mean()
+        prediction_protons = protons.groupby(["array_event_id", "run_id"])["gamma_prediction"].mean()
+    elif what == "median":
+        prediction_gammas = gammas.groupby(["array_event_id", "run_id"])["gamma_prediction"].median()
+        prediction_protons = protons.groupby(["array_event_id", "run_id"])["gamma_prediction"].median()
+    elif what == 'single':
+        prediction_gammas = gammas.gamma_prediction
+        prediction_protons = protons.gamma_prediction
+    elif what == "min":
+        prediction_gammas = gammas.groupby(["array_event_id", "run_id"])["gamma_prediction"].min()
+        prediction_protons = protons.groupby(["array_event_id", "run_id"])["gamma_prediction"].min()
+    elif what == "max":
+        prediction_gammas = gammas.groupby(["array_event_id", "run_id"], )["gamma_prediction"].max()
+        prediction_protons = protons.groupby(["array_event_id", "run_id"],)["gamma_prediction"].max()
+    elif what == "brightest":
+        idx = gammas.groupby(["array_event_id", "run_id"])["intensity"].idxmax()
+        prediction_gammas = gammas.loc[idx].gamma_prediction.values
 
-    mean_prediction_protons = predictions_protons
-    proton_labels = np.zeros_like(mean_prediction_protons)
+        idx = protons.groupby(["array_event_id", "run_id"])["intensity"].idxmax()
+        prediction_protons = protons.loc[idx].gamma_prediction.values
 
-    y_score = np.hstack([mean_prediction_gammas, mean_prediction_protons])
+    gamma_labels = np.ones_like(prediction_gammas)
+    proton_labels = np.zeros_like(prediction_protons)
+
+    y_score = np.hstack([prediction_gammas, prediction_protons])
     y_true = np.hstack([gamma_labels, proton_labels])
 
     fpr, tpr, _ = roc_curve(y_true, y_score, pos_label=1)
@@ -49,21 +68,28 @@ def plot_auc(predictions_gammas, predictions_protons, ax=None, inset=False):
 
     if not ax:
         fig, ax = plt.subplots(1, 1)
+    else:
+        fig = plt.gcf()
+    if label:
+        label_text = f'Aggregation: "{label}" AuC: {auc:.3f}'
+    else:
+        label_text = f'Area under Curve: {auc:.3f}'
+    ax.plot(fpr, tpr, lw=2, label=label_text)
 
-    ax.plot(fpr, tpr, lw=2)
+    legend = ax.legend(loc='lower right', framealpha=0.5)
+
+    # see this SO post for right alignment of text.
+    # https://stackoverflow.com/a/16858263/2154625
+    
+    renderer = fig.canvas.get_renderer()
+    shift = max([t.get_window_extent(renderer).width for t in legend.get_texts()])
+    for t in legend.get_texts():
+        t.set_ha('right')  # ha is alias for horizontalalignment
+        t.set_position((shift, 0))
 
     add_rectangles(ax)
 
-    ax.text(
-        0.95,
-        0.1,
-        "Area Under Curve: ${:.4f}$".format(auc),
-        verticalalignment="bottom",
-        horizontalalignment="right",
-        color="#404040",
-        fontsize=11,
-    )
-
+ 
     ax.set_xlabel("false positive rate")
     ax.set_ylabel("true positive rate")
 
