@@ -1,3 +1,5 @@
+import os
+
 import click
 import matplotlib.pyplot as plt
 import numpy as np
@@ -9,15 +11,20 @@ import fact.io
 from .. import load_signal_events, apply_cuts
 
 
-def _apply_flags(ctx, ax):
+def _apply_flags(ctx, ax, data=None):
     if ctx.obj["YLIM"]:
         ax.set_ylim(ctx.obj["YLIM"])
 
     output = ctx.obj["OUTPUT"]
     if output:
         plt.savefig(output)
+        if data is not None:
+            n, _ = os.path.splitext(output)
+            data.to_csv(n + '.csv', index=False, na_rep='NaN', )
     else:
         plt.show()
+
+
 
 
 def _load_data(path, dropna=True):
@@ -100,8 +107,8 @@ def energy_resolution(ctx, reconstructed_events, reference, relative, plot_e_rec
         reconstructed_events = apply_cuts(reconstructed_events, cuts_path)
     e_true = reconstructed_events.mc_energy
     e_reco = reconstructed_events.gamma_energy_prediction_mean
-    ax = plot_resolution(e_true, e_reco, reference=reference, relative=relative, plot_e_reco=plot_e_reco)
-    _apply_flags(ctx, ax)
+    ax, df = plot_resolution(e_true, e_reco, reference=reference, relative=relative, plot_e_reco=plot_e_reco)
+    _apply_flags(ctx, ax, data=df)
 
 
 @cli.command()
@@ -117,8 +124,9 @@ def energy_bias(ctx, reconstructed_events, reference, relative, plot_e_reco, cut
         reconstructed_events = apply_cuts(reconstructed_events, cuts_path)
     e_true = reconstructed_events.mc_energy
     e_reco = reconstructed_events.gamma_energy_prediction_mean
-    ax = plot_bias(e_true, e_reco)
-    _apply_flags(ctx, ax)
+    ax, df = plot_bias(e_true, e_reco)
+    _apply_flags(ctx, ax, data=df)
+
 
 
 @cli.command()
@@ -155,7 +163,6 @@ def auc(ctx, gammas, protons, what):
         ax.set_xlim([-0.05, 1.05])
         ax.set_ylim([-0.05, 1.05])
 
-    
     _apply_flags(ctx, ax)
 
 

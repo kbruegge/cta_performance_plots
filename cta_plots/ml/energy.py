@@ -1,4 +1,5 @@
 import numpy as np
+import pandas as pd
 import astropy.units as u
 import matplotlib.pyplot as plt
 from scipy.stats import binned_statistic
@@ -64,6 +65,12 @@ def plot_resolution(e_true, e_reco, color=main_color, reference=False, relative=
     ax.set_ylim([bins_y.min(), bins_y.max()])
     ax.legend()
 
+    df = pd.DataFrame({
+        'energy': bin_center,
+        'resolution': iqr,
+    })
+    return ax, df
+
 
 
 def plot_bias(e_true, e_reco, color=main_color, ax=None):
@@ -94,4 +101,9 @@ def plot_bias(e_true, e_reco, color=main_color, ax=None):
 
     ax.set_xlabel('$E_{Reco} / TeV$')
     ax.set_ylim([bins_y.min(), bins_y.max()])
-    return ax
+
+    df = pd.DataFrame({
+        'energy': bin_center,
+        'mean_bias': mean_bias,
+    })
+    return ax, df
