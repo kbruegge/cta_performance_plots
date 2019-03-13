@@ -91,5 +91,5 @@ def find_best_cuts(
         max_index = np.nanargmax(significances)
 
     best_sensitivity, best_significance, best_theta_cut, best_prediction_cut, best_mult = rs[max_index]
-
+    
     return best_sensitivity, best_prediction_cut, best_theta_cut, best_significance, best_mult
