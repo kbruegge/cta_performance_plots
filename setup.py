@@ -34,19 +34,11 @@ setup(
     zip_safe=False,
     entry_points={
         'console_scripts': [
-            'cta_plot_effective_area = cta_plots.mc.effective_area:main',
-            'cta_plot_sensitivity = cta_plots.mc.sensitivity:main',
-            'cta_plot_h_max_distance = cta_plots.mc.h_max_distance:main',
-            'cta_plot_h_max = cta_plots.mc.h_max:main',
-            'cta_plot_energy_resolution = cta_plots.mc.energy_resolution:main',
-            'cta_plot_energy_bias = cta_plots.mc.energy_bias:main',
-            'cta_plot_energy_migration = cta_plots.mc.energy_migration:main',
-            'cta_plot_angular_resolution = cta_plots.mc.angular_resolution_vs_energy:main',
-            'cta_plot_impact_distance = cta_plots.mc.impact_distance:main',
-            'cta_plot_impact = cta_plots.mc.impact:main',
-            'cta_plot_theta_square = cta_plots.mc.theta_squared:main',
-            'cta_plot_triggered_counts = cta_plots.mc.triggered_counts:main',
+            'cta_plot_effective_area = cta_plots.sensitivity.effective_area:main',
+            'cta_plot_sensitivity = cta_plots.sensitivity.sensitivity:main',
+            'cta_plot_theta_square = cta_plots.sensitivity.theta_squared:main',
             'cta_plot_ml = cta_plots.ml.ml_cli:cli',
+            'cta_plot_reco = cta_plots.reconstruction.reco_cli:cli',
             'cta_plot_irf = cta_plots.irf.irf_cli:cli',
         ],
     }

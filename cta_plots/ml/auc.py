@@ -2,8 +2,15 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 from sklearn.metrics import roc_curve, roc_auc_score
-import fact.io
 from mpl_toolkits.axes_grid1.inset_locator import zoomed_inset_axes, mark_inset
+from ..colors import telescope_color
+from ..binning import make_default_cta_binning
+import astropy.units as u
+import pandas as pd
+
+
+name_to_id = {"LST": 1, "MST": 2, "SST": 3}
+id_to_name = {1: "LST", 2: "MST", 3: "SST"}
 
 
 def add_rectangles(ax, offset=0.1):
@@ -27,42 +34,62 @@ def add_rectangles(ax, offset=0.1):
     ax.add_patch(rect)
 
 
-def plot_auc(predicted_gammas, predicted_protons, ax=None, inset=False):
-    gammas = fact.io.read_data(
-        predicted_gammas, key="array_events", columns=["gamma_prediction_mean"]
-    ).dropna()
-    mean_prediction_gammas = gammas.gamma_prediction_mean
-    gamma_labels = np.ones_like(mean_prediction_gammas)
+def plot_auc(gammas, protons, what='mean', inset=False, label='', ax=None):
+    if what == "mean":
+        prediction_gammas = gammas.groupby(["array_event_id", "run_id"])["gamma_prediction"].mean()
+        prediction_protons = protons.groupby(["array_event_id", "run_id"])["gamma_prediction"].mean()
+    elif what == "median":
+        prediction_gammas = gammas.groupby(["array_event_id", "run_id"])["gamma_prediction"].median()
+        prediction_protons = protons.groupby(["array_event_id", "run_id"])["gamma_prediction"].median()
+    elif what == 'single':
+        prediction_gammas = gammas.gamma_prediction
+        prediction_protons = protons.gamma_prediction
+    elif what == "min":
+        prediction_gammas = gammas.groupby(["array_event_id", "run_id"])["gamma_prediction"].min()
+        prediction_protons = protons.groupby(["array_event_id", "run_id"])["gamma_prediction"].min()
+    elif what == "max":
+        prediction_gammas = gammas.groupby(["array_event_id", "run_id"], )["gamma_prediction"].max()
+        prediction_protons = protons.groupby(["array_event_id", "run_id"],)["gamma_prediction"].max()
+    elif what == "brightest":
+        idx = gammas.groupby(["array_event_id", "run_id"])["intensity"].idxmax()
+        prediction_gammas = gammas.loc[idx].gamma_prediction.values
 
-    protons = fact.io.read_data(
-        predicted_protons, key="array_events", columns=["gamma_prediction_mean"]
-    ).dropna()
-    mean_prediction_protons = protons.gamma_prediction_mean
-    proton_labels = np.zeros_like(mean_prediction_protons)
+        idx = protons.groupby(["array_event_id", "run_id"])["intensity"].idxmax()
+        prediction_protons = protons.loc[idx].gamma_prediction.values
 
-    y_score = np.hstack([mean_prediction_gammas, mean_prediction_protons])
+    gamma_labels = np.ones_like(prediction_gammas)
+    proton_labels = np.zeros_like(prediction_protons)
+
+    y_score = np.hstack([prediction_gammas, prediction_protons])
     y_true = np.hstack([gamma_labels, proton_labels])
 
     fpr, tpr, _ = roc_curve(y_true, y_score, pos_label=1)
     auc = roc_auc_score(y_true, y_score)
 
     if not ax:
-        fig, ax = plt.subplots(1, 1, figsize=(10, 7))
+        fig, ax = plt.subplots(1, 1)
+    else:
+        fig = plt.gcf()
+    if label:
+        label_text = f'Aggregation: "{label}" AuC: {auc:.3f}'
+    else:
+        label_text = f'Area under Curve: {auc:.3f}'
+    ax.plot(fpr, tpr, lw=2, label=label_text)
 
-    ax.plot(fpr, tpr, lw=2)
+    legend = ax.legend(loc='lower right', framealpha=0.5)
+
+    # see this SO post for right alignment of text.
+    # https://stackoverflow.com/a/16858263/2154625
+    
+    renderer = fig.canvas.get_renderer()
+    shift = max([t.get_window_extent(renderer).width for t in legend.get_texts()])
+    for t in legend.get_texts():
+        t.set_ha('right')  # ha is alias for horizontalalignment
+        t.set_position((shift, 0))
 
     add_rectangles(ax)
 
-    ax.text(
-        0.95,
-        0.1,
-        "Area Under Curve: ${:.4f}$".format(auc),
-        verticalalignment="bottom",
-        horizontalalignment="right",
-        color="#404040",
-        fontsize=11,
-    )
-
+ 
     ax.set_xlabel("false positive rate")
     ax.set_ylabel("true positive rate")
 
@@ -84,3 +111,122 @@ def plot_auc(predicted_gammas, predicted_protons, ax=None, inset=False):
         # axins.spines.color = 'darkgray'
 
     return ax
+
+
+
+def plot_auc_per_type(gammas, protons, what, box, ax=None):
+
+    if not ax:
+        fig, ax = plt.subplots(1, 1)
+
+    for tel_type in ["LST", "MST", "SST"]:
+        tel_gammas = gammas.query(f'telescope_type_id == "{name_to_id[tel_type]}"')
+        tel_protons = protons.query(f'telescope_type_id == "{name_to_id[tel_type]}"')
+        if what == "mean":
+            prediction_gammas = tel_gammas.groupby(["array_event_id", "run_id"])[
+                "gamma_prediction"
+            ].mean()
+            prediction_protons = tel_protons.groupby(["array_event_id", "run_id"])[
+                "gamma_prediction"
+            ].mean()
+        else:
+            prediction_gammas = tel_gammas.gamma_prediction
+            prediction_protons = tel_protons.gamma_prediction
+
+        gamma_labels = np.ones_like(prediction_gammas)
+        proton_labels = np.zeros_like(prediction_protons)
+
+        y_score = np.hstack([prediction_gammas, prediction_protons])
+        y_true = np.hstack([gamma_labels, proton_labels])
+
+        fpr, tpr, _ = roc_curve(y_true, y_score, pos_label=1)
+        auc = roc_auc_score(y_true, y_score)
+        ax.plot(
+            fpr,
+            tpr,
+            lw=2,
+            label=f"AUC for {tel_type}:  {auc:{1}.{3}}",
+            color=telescope_color[tel_type],
+        )
+        ax.legend()
+    if box:
+        add_rectangles(ax)
+
+
+def plot_auc_vs_energy(gammas, protons, e_reco=False, sample=False, ax=None):
+
+
+    bins, bin_center, bin_widths = make_default_cta_binning(
+        e_min=0.008 * u.TeV, e_max=300 * u.TeV
+    )
+
+    if e_reco:
+        key = "gamma_energy_prediction"
+    else:
+        key = "mc_energy"
+
+    gammas["energy_bin"] = pd.cut(gammas[key], bins)
+    protons["energy_bin"] = pd.cut(protons[key], bins)
+
+    if not ax:
+        fig, ax = plt.subplots(1, 1)
+
+    for tel_type in ["SST", "MST", "LST"]:
+        aucs = []
+        for b in gammas.energy_bin.cat.categories:
+
+            tel_gammas = gammas[
+                (gammas.energy_bin == b)
+                &
+                (gammas.telescope_type_id == name_to_id[tel_type])
+            ]
+            if sample:
+                tel_protons = protons[protons.telescope_type_id == name_to_id[tel_type]]
+            else:
+                tel_protons = protons[
+                    (protons.energy_bin == b)
+                    & 
+                    (protons.telescope_type_id == name_to_id[tel_type])
+                ]
+
+            if len(tel_gammas) < 350 or len(tel_protons) < 350:
+                aucs.append(np.nan)
+            else:
+                mean_prediction_gammas = tel_gammas.groupby(
+                    ["array_event_id", "run_id"]
+                )["gamma_prediction"].mean()
+                gamma_labels = np.ones_like(mean_prediction_gammas)
+
+                mean_prediction_protons = tel_protons.groupby(
+                    ["array_event_id", "run_id"]
+                )["gamma_prediction"].mean()
+                proton_labels = np.zeros_like(mean_prediction_protons)
+
+                y_score = np.hstack([mean_prediction_gammas, mean_prediction_protons])
+                y_true = np.hstack([gamma_labels, proton_labels])
+
+                aucs.append(roc_auc_score(y_true, y_score))
+
+        ax.errorbar(
+            bin_center.value,
+            aucs,
+            xerr=bin_widths.value / 2.0,
+            linestyle="--",
+            label=tel_type,
+            ecolor="gray",
+            ms=0,
+            capsize=0,
+            color=telescope_color[tel_type],
+        )
+
+    ax.set_xscale("log")
+
+    if e_reco:
+        label = r"$E_{Reco} / TeV$"
+    else:
+        label = r"$E_{True} / TeV$"
+    ax.set_xlabel(label)
+    ax.set_ylabel("Area Under RoC Curve")
+    ax.legend()
+    return ax
+

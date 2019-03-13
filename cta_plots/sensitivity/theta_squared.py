@@ -2,18 +2,10 @@ import click
 import numpy as np
 import matplotlib.pyplot as plt
 import astropy.units as u
-import pandas as pd
-from fact.analysis import li_ma_significance
-from scipy.optimize import brute
-from cta_plots.coordinate_utils import (
-    calculate_distance_to_true_source_position,
-    calculate_distance_to_point_source,
-)
-from cta_plots.mc.spectrum import MCSpectrum, CrabSpectrum, CosmicRaySpectrum, CTAElectronSpectrum
+
 import matplotlib.offsetbox as offsetbox
-from fact.io import read_data
 from cta_plots import load_signal_events, load_background_events, ELECTRON_TYPE
-from cta_plots.coordinate_utils import find_best_detection_significance
+from cta_plots.sensitivity.optimize import find_best_cuts
 
 
 @click.command()
@@ -21,19 +13,20 @@ from cta_plots.coordinate_utils import find_best_detection_significance
 @click.argument('protons_path', type=click.Path(exists=True))
 @click.argument('electrons_path', type=click.Path(exists=True))
 @click.option('-o', '--output', type=click.Path(exists=False))
-@click.option('-j', '--n_jobs', default=-4)
+@click.option('-j', '--n_jobs', default=4)
 def main(gammas_path, protons_path, electrons_path, output, n_jobs):
 
     t_obs = 5 * u.min
 
     gammas, source_alt, source_az = load_signal_events(gammas_path, assumed_obs_time=t_obs)
-    background = load_background_events(protons_path, electrons_path, source_alt, source_az,  assumed_obs_time=t_obs,)
+    background = load_background_events(protons_path, electrons_path, source_alt, source_az, assumed_obs_time=t_obs,)
 
     theta_square_cuts = np.arange(0.01, 0.35, 0.01)
-    prediction_cuts = np.arange(0.4, 1, 0.025)
+    prediction_cuts = np.arange(0.0, 1, 0.05)
+    multiplicities = [2, 3, 4, 5, 6, 7, 8]
 
-    best_prediction_cut, best_theta_square_cut, best_significance, _ = find_best_detection_significance(
-        theta_square_cuts, prediction_cuts, gammas, background, alpha=1
+    best_sensitivity, best_prediction_cut, best_theta_cut, best_significance, best_mult = find_best_cuts(
+        theta_square_cuts, prediction_cuts, multiplicities, gammas, background, alpha=1, criterion='significance', n_jobs=n_jobs
     )
 
     gammas_gammalike = gammas.query(f'gamma_prediction_mean > {best_prediction_cut}').copy()
@@ -59,13 +52,13 @@ def main(gammas_path, protons_path, electrons_path, output, n_jobs):
 
     ax.set_ylim([0, max(h_on + h_off) * 1.18])
     ax.axhline(y=h_off.mean(), color='C1', lw=1, alpha=0.7)
-    ax.axvline(x=best_theta_square_cut, color='gray', lw=1, alpha=0.7)
+    ax.axvline(x=best_theta_cut**2, color='gray', lw=1, alpha=0.7)
 
     textstr = '\n'.join(
         [
             f'Observation Time: {t_obs}',
             f'Prediction Threshold: {best_prediction_cut:.2f}',
-            f'Theta Square Cut: {(best_theta_square_cut):.2f}',
+            f'Theta Cut: {(best_theta_cut):.2f}',
             f'Significance: {best_significance:.2f}',
         ]
     )

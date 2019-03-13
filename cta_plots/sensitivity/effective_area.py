@@ -1,12 +1,13 @@
 import click
 import matplotlib.pyplot as plt
 import numpy as np
-import pandas as pd
+
 from astropy.stats import binom_conf_interval
 import astropy.units as u
 
-from cta_plots import make_default_cta_binning, load_effective_area_requirement
-from cta_plots.mc.spectrum import MCSpectrum
+from cta_plots.binning import make_default_cta_binning
+from cta_plots.sensitivity import load_effective_area_reference
+from cta_plots.spectrum import MCSpectrum
 from cta_plots.colors import color_cycle
 from fact.io import read_data
 
@@ -15,24 +16,26 @@ from fact.io import read_data
 @click.argument('input_file', type=click.Path(exists=True))
 @click.option('-l', '--label', multiple=True)
 @click.option('-o', '--output', type=click.Path(exists=False))
-@click.option('-b', '--n_bins', default=20, show_default=True)
 @click.option('-m', '--multiplicity', default=2)
 @click.option('-t', '--threshold', default=0.0, show_default=True, help='prediction threshold to apply', multiple=True)
 @click.option('-p', '--cuts_path', type=click.Path(exists=True))
 @click.option('--reference/--no-reference', default=True)
-def main(input_file, label, output, n_bins, multiplicity, threshold, cuts_path,  reference):
+def main(input_file, label, output, multiplicity, threshold, cuts_path, reference):
 
     bins, bin_center, bin_widths = make_default_cta_binning(e_min=0.005 * u.TeV)
 
     gammas = read_data(input_file, key='array_events')
+
     if multiplicity > 2:
         gammas = gammas.query(f'num_triggered_telescopes >= {multiplicity}').copy()
 
     runs = read_data(input_file, key='runs')
     mc_production = MCSpectrum.from_cta_runs(runs)
 
+    if not threshold:
+        threshold = [0]
     if not label:
-        label = [None] * len(input_file)
+        label = [None] * len(threshold)
 
     for t, c, l in zip(threshold, color_cycle, label):
 
@@ -73,7 +76,7 @@ def main(input_file, label, output, n_bins, multiplicity, threshold, cuts_path, 
 
 
     if reference:
-        df = load_effective_area_requirement()
+        df = load_effective_area_reference()
         plt.plot(df.energy, df.effective_area, '--', color='gray', label='Prod3b reference')
 
     plt.legend()

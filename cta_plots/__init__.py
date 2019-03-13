@@ -6,9 +6,12 @@ from fact.io import read_data
 from scipy.interpolate import interp1d
 from scipy.ndimage import gaussian_filter1d
 
+from mpl_toolkits.axes_grid1 import make_axes_locatable
+
+
 from cta_plots.coordinate_utils import calculate_distance_to_point_source
 
-from .mc import spectrum
+from . import spectrum
 
 # define these constants to identify electrons and protons in background data
 ELECTRON_TYPE = 1
@@ -122,7 +125,7 @@ def load_signal_events(gammas_path, assumed_obs_time=30 * u.min, columns=DEFAULT
 
     if calculate_weights:
         if is_diffuse:
-            print(Fore.RED + f'Data given at {gammas_path} is diffuse cannot calcualte weights according to crab spectrum')
+            print(Fore.RED + f'Data given at {gammas_path} is diffuse. Cannot calcualte weights according to crab spectrum which is pointlike')
             print(Fore.RESET)
             raise ValueError
 
@@ -167,3 +170,9 @@ def load_background_events(protons_path, electrons_path, source_alt, source_az, 
     
     background = pd.concat([protons, electrons], sort=False)
     return background
+
+
+def add_colorbar_to_figure(im, fig, ax):
+    divider = make_axes_locatable(ax)
+    cax = divider.append_axes('right', size='5%', pad=0.05)
+    fig.colorbar(im, cax=cax, orientation='vertical')
