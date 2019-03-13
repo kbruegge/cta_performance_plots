@@ -18,9 +18,9 @@ def psf_3d_plot(irf_file_path, ax=None, hdu="PSF"):
     energy_reco = np.logspace(-2, 2, 20) * u.TeV
     offsets = np.linspace(0, 6, 7) * u.deg
 
-    d = np.linspace(0.1, 10, 11)[1::2]
+    d = np.linspace(0.01, 1.1, 11)[1::2]
     ticks = np.log10(d)
-    ticks = np.append(ticks, 1 + ticks)
+    # ticks = np.append(ticks, 1 + ticks)
 
     X, Y = np.meshgrid(energy_reco, offsets)
     Z = []
@@ -29,14 +29,14 @@ def psf_3d_plot(irf_file_path, ax=None, hdu="PSF"):
         Z.append(zs)
 
     Z = np.vstack(Z).T
-    surf = ax.plot_surface(np.log10(X.to_value('TeV')), Y, np.log10(Z), cmap='viridis',  linewidth=1, antialiased=True)
+    ax.plot_surface(np.log10(X.to_value('TeV')), Y, np.log10(Z), cmap='viridis', linewidth=1, antialiased=True)
 
-    ax.xaxis.set_major_locator(mticker.FixedLocator([-2, -1, 0, 1, 2 ]))
+    ax.xaxis.set_major_locator(mticker.FixedLocator([-2, -1, 0, 1, 2]))
     ax.zaxis.set_major_locator(mticker.FixedLocator(ticks))
 
     ax.zaxis.set_major_formatter(mticker.FuncFormatter(_log_scale_formatter))
     ax.xaxis.set_major_formatter(mticker.FuncFormatter(_log_tick_formatter))
-    ax.set_zlim([-1 ,1])
+    ax.set_zlim([-1 , 0.4])
     ax.set_ylabel('Offset in FoV / deg')
     ax.set_zlabel('Angular Resolution / deg')
     ax.set_xlabel('Reconstructed Energy / TeV')
