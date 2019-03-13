@@ -43,26 +43,18 @@ def load_sensitivity_requirement():
     return df
 
 
-# def load_background_reference():
-#     path = 'ascii/CTA-Performance-prod3b-v1-South-20deg-50h-BackgroundSqdeg.txt'
-#     r = resource_string('cta_plots.resources', path)
-#     df = pd.read_csv(
-#         BytesIO(r), delimiter='\t\t', skiprows=11, names=['e_min', 'e_max', 'rate'], engine='python'
-#     )
-#     return df
 
-
-
-def check_validity(n_signal, n_off, alpha=0.2):
+def check_validity(n_signal, n_off, total_bkg_counts, alpha=0.2):
     n_on = n_signal + alpha * n_off
 
-    enough_bkg_counts = alpha * n_off >= 10
+
+    enough_bkg_counts = total_bkg_counts >= 20
 
     enough_signal_counts = n_signal >= 10
 
     # must be higher than 5 times the assumed bkg systematic uncertainty of 1 percent. (See aswg irf report)
     # https://forge.in2p3.fr/projects/cta_analysis-and-simulations/repository/changes/DOC/InternalReports/IRFReports/released/v1.1/cta-aswg-IRFreport.pdf
-    systematic = n_signal > (n_off * 0.05)
+    systematic = n_signal > (n_off * 0.05 / alpha)
 
     required_excess = n_on > (alpha * n_off + 10)
 
@@ -78,7 +70,7 @@ def calculate_n_signal(signal_events, theta_cut):
 
 
 def calculate_n_on_n_off(signal_events, background_events, theta_cut, alpha=0.2):
-    n_off, n_off_counts = calculate_n_off(background_events, theta_cut, alpha=alpha)
+    n_off, n_off_counts, _ = calculate_n_off(background_events, theta_cut, alpha=alpha)
     n_signal, n_signal_counts = calculate_n_signal(signal_events, theta_cut)
 
     n_on = n_signal + alpha * n_off
@@ -89,8 +81,9 @@ def calculate_n_on_n_off(signal_events, background_events, theta_cut, alpha=0.2)
 def calculate_n_off(background_events, theta_cut, alpha=0.2,):
     m = background_events.theta <= 1.0
     n_off = (background_events[m].weight * (theta_cut**2 / alpha)).sum()
-    counts = m.sum()
-    return n_off, counts
+    n_off_counts = m.sum() * (theta_cut**2 / alpha)
+    total_counts = m.sum()
+    return n_off, n_off_counts, total_counts
 
 
 def calculate_significance(signal_events, background_events, theta_cut, alpha=0.2):
@@ -120,13 +113,12 @@ def calculate_relative_sensitivity(signal_events, background_events, theta_cut, 
     '''
 
     n_signal, n_signal_count = calculate_n_signal(signal_events, theta_cut)
-    n_off, n_off_count = calculate_n_off(background_events, theta_cut, alpha=alpha)
+    n_off, n_off_count, total_bkg_counts = calculate_n_off(background_events, theta_cut, alpha=alpha)
 
     
-    valid = check_validity(n_signal_count, n_off_count, alpha=alpha)
-    valid &= check_validity(n_signal, n_off, alpha=alpha)
-    if n_off_count < 50:
-        print(n_off_count, valid)
+    valid = check_validity(n_signal_count, n_off_count, total_bkg_counts, alpha=alpha)
+    valid &= check_validity(n_signal, n_off, total_bkg_counts, alpha=alpha)
+
     if valid:
         relative_sensitivity = find_relative_sensitivity(n_signal, n_off, alpha=alpha)
         return relative_sensitivity
@@ -281,8 +273,8 @@ def find_relative_sensitivity_poisson(n_signal, n_background, t_signal, t_backgr
 
     right_bound = 100
 
-    n_signal = np.random.poisson(t_signal, size=N) * n_signal / t_signal
-    n_background = np.random.poisson(t_background, size=N) * n_background / t_background
+    n_signal = np.random.poisson(n_signal, size=N)
+    n_background = np.random.poisson(n_background, size=N) 
 
     hs = []
     for signal, background in zip(n_signal, n_background):

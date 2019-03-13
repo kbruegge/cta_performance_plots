@@ -28,9 +28,9 @@ def calc_relative_sensitivity(gammas, background, bin_edges, alpha=0.2, n_jobs=4
     # prediction_cuts = np.arange(0.1, 1, 0.025)
     # multiplicities = [2, 3, 4, 5, 6, 7, 8, 9, 10]
 
-    theta_cuts = np.arange(0.01, 0.38, 0.1)
-    prediction_cuts = np.arange(0.1, 1, 0.2)
-    multiplicities = [4, 5, 6, 7, ]
+    theta_cuts = np.arange(0.01, 0.40, 0.01)
+    prediction_cuts = np.arange(0.0, 1, 0.025)
+    multiplicities = np.arange(2, 10)
 
     groups = pd.cut(gammas.gamma_energy_prediction_mean, bins=bin_edges)
     g = gammas.groupby(groups)
@@ -56,13 +56,16 @@ def calc_relative_sensitivity(gammas, background, bin_edges, alpha=0.2, n_jobs=4
         n_signal, n_signal_counts = calculate_n_signal(
             gammas_gammalike, best_theta_cut,
         )
-        n_off, n_off_counts = calculate_n_off(
+        n_off, n_off_counts, total_bkg_counts = calculate_n_off(
             background_gammalike, best_theta_cut, alpha=alpha
         )
         
-        rs = find_relative_sensitivity_poisson(n_signal, n_off, n_signal_counts, n_off_counts, alpha=alpha)
+        if not np.isnan(best_sensitivity):
+            rs = find_relative_sensitivity_poisson(n_signal, n_off, n_signal_counts, n_off_counts, alpha=alpha)
+            m, l, h = rs
+        else:
+            m, l, h = np.nan, np.nan, np.nan
 
-        m, l, h = rs
         d = {
             'sensitivity': m,
             'sensitivity_low': l,
@@ -75,6 +78,7 @@ def calc_relative_sensitivity(gammas, background, bin_edges, alpha=0.2, n_jobs=4
             'weighted_background_counts': n_off,
             'theta_cut': best_theta_cut,
             'multiplicity': best_mult,
+            'total_bkg_counts': total_bkg_counts,
         }
         results.append(d)
 
@@ -119,7 +123,7 @@ def main(
     )
 
     if energy_bias_path:
-        energy_bias = load_energy_bias_function(energy_bias_path, sigma=0)
+        energy_bias = load_energy_bias_function(energy_bias_path, sigma=1)
         e_reco = gammas.gamma_energy_prediction_mean
         e_corrected = e_reco * (-energy_bias(e_reco) + 1)
         gammas.gamma_energy_prediction_mean = e_corrected
@@ -130,7 +134,7 @@ def main(
     else:
         print(Fore.YELLOW + 'Not correcting for energy bias' + Fore.RESET)
 
-    e_min, e_max = 0.005 * u.TeV, 350 * u.TeV
+    e_min, e_max = 0.02 * u.TeV, 200 * u.TeV
     bin_edges, bin_center, _ = make_default_cta_binning(e_min=e_min, e_max=e_max)
 
     df_sensitivity = calc_relative_sensitivity(gammas, background, bin_edges, alpha=0.2, n_jobs=n_jobs)
