@@ -36,8 +36,8 @@ def make_energy_bins(
 class Spectrum():
     '''
     A class containing usefull methods for working with power law spectra.
-    The  normalization_constant should a a unit like 1 /(TeV m^2 h)
-    and the index ( e.g. -2.0) should have not unit attached.
+    The  normalization_constant should a unit like 1 / (TeV m^2 h)
+    and the index ( e.g. -2.0) should have no unit attached.
 
     See the subclasses `~models.CosmicRaySpectrum` and `~models.CrabSpectrum`
     for usefull physical spectra.
@@ -53,7 +53,7 @@ class Spectrum():
 
     @property
     def extended_source(self):
-        return u.sr.si in [b.si for b in self.normalization_constant.unit.bases ]
+        return u.sr.si in [b.si for b in self.normalization_constant.unit.bases]
 
 
     @u.quantity_input(e_min=u.TeV, e_max=u.TeV,)
@@ -78,8 +78,8 @@ class Spectrum():
         if not index:
             index = self.index
 
-        a = e_min.to('TeV').value**(index + 1)
-        b = e_max.to('TeV').value**(index + 1)
+        a = e_min.to_value('TeV')**(index + 1)
+        b = e_max.to_value('TeV')**(index + 1)
         r = np.random.uniform(0, 1, size)
         k = (a + (b - a) * r)
         e = k**(1. / (index + 1))
@@ -426,7 +426,7 @@ class MCSpectrum(Spectrum):
 
 
     def __repr__(self):
-        return f'E_Min:{self.e_min}, E_Max:{self.e_max}, N_total:{self.total_showers_simulated}, index:{self.index}, normalization contant:{self.normalization_constant}'
+        return f'Monte Carlo Sepctrum: {{E_Min:{self.e_min}, E_Max:{self.e_max}, N_total:{self.total_showers_simulated}, index:{self.index}, normalization contant:{self.normalization_constant} }}'
 
     def draw_energy_distribution(self, size):
         return super().draw_energy_distribution(
@@ -528,7 +528,7 @@ class MCSpectrum(Spectrum):
         n_events = self.total_showers_simulated
         integral_flux = other_spectrum._integral(self.e_min, self.e_max)
         area = self.generation_area
-        t =  n_events / (area * integral_flux)
+        t = n_events / (area * integral_flux)
         if self.generator_solid_angle and self.generator_solid_angle.to_value(u.deg) > 0:
             solid_angle = self.generator_solid_angle
             solid_angle = (1 - np.cos(solid_angle)) * 2 * np.pi * u.sr
@@ -571,7 +571,7 @@ if __name__ == '__main__':
         generation_area=area,
         index=simulation_index,
     )
-
+    from IPython import embed; embed()
     mc2 = MCSpectrum(
         e_min=e_min,
         e_max=e_max,
