@@ -413,10 +413,10 @@ class MCSpectrum(Spectrum):
         self.generator_solid_angle = generator_solid_angle
         self.normalization_constant = 1 / (u.TeV * u.m**2 * u.s)
         if generator_solid_angle is not None and generator_solid_angle > 0 * u.deg:
-            self.normalization_constant = 1 / (u.TeV * u.m**2 * u.s * u.sr)
             angle = generator_solid_angle.to('rad').value
             angle = (1 - np.cos(angle)) * 2 * np.pi * u.sr
 
+            self.normalization_constant = 1 / (u.TeV * u.m**2 * u.s * u.sr)
             N = self._integral(e_min.to('TeV'), e_max.to('TeV')) * (generation_area.to(u.m**2) * u.s * angle)
             self.normalization_constant = (total_showers_simulated / N) / (u.TeV * u.m**2 * u.s * u.sr)
 
@@ -515,10 +515,7 @@ class MCSpectrum(Spectrum):
             raise ValueError('Both spectra must either be extended sources or not. No mixing. ')
 
         event_energies = event_energies.to('TeV')
-        N = self.total_showers_simulated
-        A = self.expected_events() * t_assumed_obs.to('s').value / N
-
-        w = A * other_spectrum.flux(event_energies) / self.flux(event_energies)
+        w = t_assumed_obs.to_value('s') * other_spectrum.flux(event_energies) / self.flux(event_energies)
 
         # at this point the value should have no units left
         assert w.si.unit.is_unity() is True
@@ -571,7 +568,7 @@ if __name__ == '__main__':
         generation_area=area,
         index=simulation_index,
     )
-    from IPython import embed; embed()
+    # from IPython import embed; embed()
     mc2 = MCSpectrum(
         e_min=e_min,
         e_max=e_max,
@@ -579,8 +576,8 @@ if __name__ == '__main__':
         generation_area=area * 2,
         index=simulation_index,
     )
-    print(mc.expected_events(), N)
-    # assert mc2.expected_events() == N
+
+    assert np.allclose(mc2.expected_events(), N)
     assert mc.generation_area * 2 ==  mc2.generation_area
     assert mc.expected_events() ==  mc2.expected_events()
     assert mc.normalization_constant == mc2.normalization_constant * 2
