@@ -13,7 +13,7 @@ from . import load_angular_resolution_requirement
 from .. import add_colorbar_to_figure
 
 
-def plot_angular_resolution(reconstructed_events, reference, plot_e_reco, ax=None):
+def plot_angular_resolution(reconstructed_events, reference, plot_e_reco, ylog=False, ylim=None, ax=None):
 
     df = reconstructed_events
     distance = calculate_distance_to_true_source_position(df)
@@ -32,31 +32,33 @@ def plot_angular_resolution(reconstructed_events, reference, plot_e_reco, ax=Non
     b_68, bin_edges, _ = binned_statistic(x, y, statistic=lambda y: np.nanpercentile(y, 68), bins=bins)
 
     bin_centers = np.sqrt(bin_edges[1:] * bin_edges[:-1])
-    bins_y = np.logspace(np.log10(0.005), np.log10(50.8), 100)
+    # bins_y = np.logspace(np.log10(0.005), np.log10(50.8), 100)
 
     log_emin, log_emax = np.log10(bins.min().value), np.log10(bins.max().value)
-    log_ymin, log_ymax = np.log10(bins_y.min()), np.log10(bins_y.max())
+    if not ylim:
+        ylim = (0.01, 20) if ylog else (0, 1) 
+    ymin, ymax = np.log10([0.01, 20]) if ylog else ylim
     
     if not ax:
         fig, ax = plt.subplots(1, 1)
+
+    im = ax.hexbin(x, y, xscale='log', yscale='log' if ylog else None, extent=(log_emin, log_emax, ymin, ymax + 0.1), cmap=default_cmap)
     
-    im = ax.hexbin(x, y, xscale='log', yscale='log', extent=(log_emin, log_emax, log_ymin, log_ymax), cmap=default_cmap, norm=PowerNorm(0.5))
-    
-    add_colorbar_to_figure(im, fig, ax)
-    ax.plot(bin_centers, b_68, lw=2, color=main_color, label='68% Percentile')
+    add_colorbar_to_figure(im, fig, ax, label='Counts')
+    ax.step(bin_centers, b_68, where='mid', lw=2, color=main_color, label='68\\textsuperscript{th} Percentile')
 
     if reference:
         df = load_angular_resolution_requirement()
         ax.plot(df.energy, df.resolution, '--', color='#5b5b5b', label='Prod3B Reference')
 
     ax.set_xscale('log')
-    ax.set_yscale('log')
-    ax.set_ylabel('Distance to True Position / degree')
+
+    ax.set_ylabel('Distance to True Position / $\,^{\circ}$')
     if plot_e_reco:
-        ax.set_xlabel(r'$E_{Reco} / TeV$')
+        ax.set_xlabel('Estimated Energy / TeV')
     else:
-        ax.set_xlabel(r'$E_{True} / TeV$')
-    ax.legend()
+        ax.set_xlabel('True Energy / TeV')
+    ax.legend(framealpha=0.5)
 
     df = pd.DataFrame({
         'energy_prediction': bin_centers,

@@ -172,7 +172,7 @@ def load_background_events(protons_path, electrons_path, source_alt, source_az, 
     return background
 
 
-def add_colorbar_to_figure(im, fig, ax):
+def add_colorbar_to_figure(im, fig, ax, label=None):
     divider = make_axes_locatable(ax)
     cax = divider.append_axes('right', size='5%', pad=0.05)
-    fig.colorbar(im, cax=cax, orientation='vertical')
+    fig.colorbar(im, cax=cax, orientation='vertical', label=label)
