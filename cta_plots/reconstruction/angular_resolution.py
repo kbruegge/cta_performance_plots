@@ -18,7 +18,7 @@ def plot_angular_resolution(reconstructed_events, reference, plot_e_reco, ylog=F
     df = reconstructed_events
     distance = calculate_distance_to_true_source_position(df)
 
-    e_min, e_max = 0.005 * u.TeV, 200 * u.TeV
+    e_min, e_max = 0.007 * u.TeV, 100 * u.TeV
     bins, bin_center, _ = make_default_cta_binning(e_min=e_min, e_max=e_max)
 
 
@@ -41,11 +41,12 @@ def plot_angular_resolution(reconstructed_events, reference, plot_e_reco, ylog=F
     
     if not ax:
         fig, ax = plt.subplots(1, 1)
-
+    else:
+        fig = plt.gcf()
     im = ax.hexbin(x, y, xscale='log', yscale='log' if ylog else None, extent=(log_emin, log_emax, ymin, ymax + 0.1), cmap=default_cmap)
     
     add_colorbar_to_figure(im, fig, ax, label='Counts')
-    ax.step(bin_centers, b_68, where='mid', lw=2, color=main_color, label='68\\textsuperscript{th} Percentile')
+    ax.step(bin_centers[1:-1], b_68[1:-1], where='mid', lw=2, color=main_color, label='68\\textsuperscript{th} Percentile')
 
     if reference:
         df = load_angular_resolution_requirement()
@@ -64,6 +65,7 @@ def plot_angular_resolution(reconstructed_events, reference, plot_e_reco, ylog=F
         'energy_prediction': bin_centers,
         'angular_resolution': b_68,
     })
+    plt.tight_layout(pad=0, rect=(0, 0, 1.002, 1))
     return ax, df
 
 
@@ -77,11 +79,11 @@ def plot_angular_resolution_per_multiplicity(reconstructed_events, reference, pl
     if not ax:
         fig, ax = plt.subplots(1, 1)
 
-    mults = [2, 4, 8, 12, 25]
+    mults = [2, 4, 10]
 
     for m, color in zip(mults, color_cycle):
         df = df_all.query(f'num_triggered_telescopes == {m}')
-        if len(df) < 1000:
+        if len(df) < 5000:
             continue
         if plot_e_reco:
             x = df.gamma_energy_prediction_mean.values
@@ -92,30 +94,26 @@ def plot_angular_resolution_per_multiplicity(reconstructed_events, reference, pl
 
         b_68, _, _ = binned_statistic(x, distance, statistic=lambda y: np.nanpercentile(y, 68), bins=bins)
 
-        ax.errorbar(
+        ax.step(
             bin_center.value,
             b_68,
-            xerr=bin_width.value / 2.0,
-            linestyle='--',
+            where='mid',
             color=color,
-            ecolor=color,
-            ms=0,
-            capsize=0,
             label=m,
         )
-
 
     if reference:
         df = load_angular_resolution_requirement()
         ax.plot(df.energy, df.resolution, '.', color='#5b5b5b', label='Prod3B Reference')
 
     ax.set_xscale('log')
-    ax.set_ylabel('Distance to True Position / degree')
+    ax.set_ylabel('Angular Resolution (68 %) / $\,^{\circ}$')
     if plot_e_reco:
-        ax.set_xlabel(r'$E_{Reco} / TeV$')
+        ax.set_xlabel('Estimated Energy / TeV')
     else:
-        ax.set_xlabel(r'$E_{True} / TeV$')
+        ax.set_xlabel('True Energy / TeV')
 
-    ax.legend()
+    ax.legend(framealpha=0.5, title='Multiplicity')
+    plt.tight_layout(pad=0, rect=(-0.011, 0, 1.006, 1))
     return ax
 

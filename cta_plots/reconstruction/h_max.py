@@ -32,7 +32,8 @@ def plot_h_max_distance(reconstructed_events, site='paranal', colormap=default_c
     if not ax:
         fig, ax = plt.subplots(1, 1)
     
-    im = ax.hexbin(x, y, xscale='log', extent=(log_emin, log_emax, -3000, 3000), cmap=colormap, norm=PowerNorm(0.5))
+
+    im = ax.hexbin(x, y, xscale='log', extent=(log_emin, log_emax, 0.01, 3000), cmap=colormap, norm=PowerNorm(0.5))
     add_colorbar_to_figure(im, fig, ax)
     ax.plot(bin_centers, b_50, lw=2, color=color, label='Median')
 
@@ -49,7 +50,7 @@ def plot_h_max(reconstructed_events, site='paranal', colormap=default_cmap, colo
 
     mc_h_max = altitude(df.mc_x_max.values * u.Unit('g/cm^2')).value
 
-    bins, bin_center, bin_widths = make_default_cta_binning(e_min=0.003 * u.TeV, e_max=330 * u.TeV)
+    bins, bin_center, bin_widths = make_default_cta_binning(e_min=0.007 * u.TeV, e_max=200 * u.TeV)
     x = df.mc_energy.values
 
     b_50, bin_edges, binnumber = binned_statistic(x, df.h_max, statistic='median', bins=bins)
@@ -60,12 +61,13 @@ def plot_h_max(reconstructed_events, site='paranal', colormap=default_cmap, colo
         fig, ax = plt.subplots(1, 1)
 
     im = ax.hexbin(x, mc_h_max, xscale='log', extent=(log_emin, log_emax, 0, 17500), cmap=colormap, norm=PowerNorm(0.5))
-    add_colorbar_to_figure(im, fig, ax)
+    add_colorbar_to_figure(im, fig, ax, label='Counts')
 
-    ax.plot(bin_center, b_50, lw=2, color=color, label='Median Prediction')
+    ax.step(bin_center, b_50, lw=2, color=color, label='Median Prediction')
 
     ax.set_xscale('log')
-    ax.set_ylabel('True H Max / meter')
-    ax.set_xlabel(r'$E_{True} / TeV$')
-    ax.legend()
+    ax.set_ylabel('Max Height / m')
+    ax.set_xlabel('True Energy / TeV')
+    ax.legend(framealpha=0.5)
+    plt.tight_layout(pad=0, rect=(0, 0, 1.003, 1))
     return ax

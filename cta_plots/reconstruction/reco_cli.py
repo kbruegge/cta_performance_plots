@@ -11,20 +11,27 @@ from cta_plots import load_signal_events
 from cta_plots.colors import main_color, default_cmap
 
 
-def _apply_flags(ctx, ax, data=None):
+def _apply_flags(ctx, axs, data=None):
+    try:
+        iter(axs)
+    except TypeError:
+        axs = [axs]
+
     if ctx.obj["YLIM"]:
-        ax.set_ylim(ctx.obj["YLIM"])
+        for ax in axs:
+            ax.set_ylim(ctx.obj["YLIM"])
 
     if ctx.obj["YLOG"] is True:
-        ax.set_yscale('log')
+        for ax in axs:
+            ax.set_yscale('log')
 
     legend = ctx.obj["LEGEND"]
     if legend is False:
-        ax.get_legend().remove()
+        for ax in axs:
+            ax.get_legend().remove()
 
     output = ctx.obj["OUTPUT"]
     if output:
-        plt.tight_layout(pad=0, rect=(0, 0, 1.002, 1))
         plt.savefig(output)
         if data is not None:
             n, _ = os.path.splitext(output)
@@ -61,7 +68,7 @@ def _load_data(path, dropna=True):
     return df
 
 
-@click.group(invoke_without_command=True)
+@click.group(invoke_without_command=True, chain=True)
 @click.option("--debug/--no-debug", default=False)
 @click.option("--dropna/--no-dropna", default=True)
 @click.option("--legend/--no-legend", default=True)
@@ -81,6 +88,7 @@ def cli(ctx, path, debug, dropna, legend, ylog, ylim, output):
     ctx.obj["YLIM"] = ylim
     ctx.obj["YLOG"] = ylog
     ctx.obj["DATA"] = _load_data(path, dropna)
+
     if debug and ctx.invoked_subcommand is None:
         print("I was invoked without subcommand")
     elif debug:
@@ -107,7 +115,7 @@ def angular_resolution(ctx, reference, plot_e_reco, cuts_path):
 @click.option('--plot_e_reco', is_flag=True, default=False)
 @click.option('-c', '--cuts_path', type=click.Path(exists=True))
 @click.pass_context
-def angular_resolution_per_tel(ctx, reference, plot_e_reco, cuts_path):
+def angular_resolution_multiplicity(ctx, reference, plot_e_reco, cuts_path):
     reconstructed_events = ctx.obj["DATA"]
     if cuts_path:
         reconstructed_events = apply_cuts(reconstructed_events, cuts_path, theta_cuts=False, )
