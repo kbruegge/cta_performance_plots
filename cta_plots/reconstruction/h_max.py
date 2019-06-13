@@ -50,12 +50,14 @@ def plot_h_max(reconstructed_events, site='paranal', colormap=default_cmap, colo
 
     mc_h_max = altitude(df.mc_x_max.values * u.Unit('g/cm^2')).value
 
-    bins, bin_center, bin_widths = make_default_cta_binning(e_min=0.007 * u.TeV, e_max=200 * u.TeV)
+    bins, bin_center, bin_widths = make_default_cta_binning(e_min=0.01 * u.TeV, e_max=250 * u.TeV,)
     x = df.mc_energy.values
 
     b_50, bin_edges, binnumber = binned_statistic(x, df.h_max, statistic='median', bins=bins)
+    b_84, _, _ = binned_statistic(x, df.h_max, statistic=lambda x: np.percentile(x, q=[84]), bins=bins)
+    b_16, _, _ = binned_statistic(x, df.h_max, statistic=lambda x: np.percentile(x, q=[16]), bins=bins)
 
-    log_emin, log_emax = np.log10(bins.min().value), np.log10(bins.max().value)
+    log_emin, log_emax = np.log10(0.007), np.log10(300)
 
     if not ax:
         fig, ax = plt.subplots(1, 1)
@@ -63,7 +65,8 @@ def plot_h_max(reconstructed_events, site='paranal', colormap=default_cmap, colo
     im = ax.hexbin(x, mc_h_max, xscale='log', extent=(log_emin, log_emax, 0, 17500), cmap=colormap, norm=PowerNorm(0.5))
     add_colorbar_to_figure(im, fig, ax, label='Counts')
 
-    ax.step(bin_center, b_50, lw=2, color=color, label='Median Prediction')
+    ax.step(bins[:-1], b_50, lw=2, color=color, label='Median Prediction', where='post')
+    ax.fill_between(bins[:-1], b_16, b_84, alpha=0.3, color=color, step='post')
 
     ax.set_xscale('log')
     ax.set_ylabel('Max Height / m')
