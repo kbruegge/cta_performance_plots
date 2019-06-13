@@ -18,7 +18,7 @@ def plot_angular_resolution(reconstructed_events, reference, plot_e_reco, ylog=F
     df = reconstructed_events
     distance = calculate_distance_to_true_source_position(df)
 
-    e_min, e_max = 0.007 * u.TeV, 100 * u.TeV
+    e_min, e_max = 0.01 * u.TeV, 250 * u.TeV
     bins, bin_center, _ = make_default_cta_binning(e_min=e_min, e_max=e_max)
 
 
@@ -34,7 +34,7 @@ def plot_angular_resolution(reconstructed_events, reference, plot_e_reco, ylog=F
     bin_centers = np.sqrt(bin_edges[1:] * bin_edges[:-1])
     # bins_y = np.logspace(np.log10(0.005), np.log10(50.8), 100)
 
-    log_emin, log_emax = np.log10(bins.min().value), np.log10(bins.max().value)
+    log_emin, log_emax = np.log10(0.007), np.log10(300)
     if not ylim:
         ylim = (0.01, 20) if ylog else (0, 1) 
     ymin, ymax = np.log10([0.01, 20]) if ylog else ylim
@@ -46,7 +46,10 @@ def plot_angular_resolution(reconstructed_events, reference, plot_e_reco, ylog=F
     im = ax.hexbin(x, y, xscale='log', yscale='log' if ylog else None, extent=(log_emin, log_emax, ymin, ymax + 0.1), cmap=default_cmap)
     
     add_colorbar_to_figure(im, fig, ax, label='Counts')
-    ax.step(bin_centers[1:-1], b_68[1:-1], where='mid', lw=2, color=main_color, label='68\\textsuperscript{th} Percentile')
+    
+    # hardcore fix for stupi step plotting artifact
+    b_68[-1] = b_68[-2]
+    ax.step(bin_edges[:-1], b_68, where='post', lw=2, color=main_color, label='68\\textsuperscript{th} Percentile')
 
     if reference:
         df = load_angular_resolution_requirement()
@@ -73,7 +76,7 @@ def plot_angular_resolution(reconstructed_events, reference, plot_e_reco, ylog=F
 def plot_angular_resolution_per_multiplicity(reconstructed_events, reference, plot_e_reco, ax=None):
     df_all = reconstructed_events
 
-    e_min, e_max = 0.02 * u.TeV, 200 * u.TeV
+    e_min, e_max = 0.01 * u.TeV, 250 * u.TeV
     bins, bin_center, bin_width = make_default_cta_binning(e_min=e_min, e_max=e_max)
 
     if not ax:
@@ -94,10 +97,12 @@ def plot_angular_resolution_per_multiplicity(reconstructed_events, reference, pl
 
         b_68, _, _ = binned_statistic(x, distance, statistic=lambda y: np.nanpercentile(y, 68), bins=bins)
 
+        # hardcore fix for stupi step plotting artifact
+        b_68[-1] = b_68[-2]
         ax.step(
-            bin_center.value,
+            bins[:-1],
             b_68,
-            where='mid',
+            where='post',
             color=color,
             label=m,
         )
@@ -113,6 +118,7 @@ def plot_angular_resolution_per_multiplicity(reconstructed_events, reference, pl
     else:
         ax.set_xlabel('True Energy / TeV')
 
+    ax.set_xlim([0.007, 300])
     ax.legend(framealpha=0.5, title='Multiplicity')
     plt.tight_layout(pad=0, rect=(-0.011, 0, 1.006, 1))
     return ax

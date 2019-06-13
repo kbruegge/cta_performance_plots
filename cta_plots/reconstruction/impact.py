@@ -38,27 +38,34 @@ def plot_impact_distance(reconstructed_events, colormap=default_cmap, color=main
     df = reconstructed_events
     distance = np.sqrt((df.mc_core_x - df.core_x)**2 + (df.mc_core_y - df.core_y)**2)
 
-    bins, bin_center, bin_widths = make_default_cta_binning(e_min=0.003 * u.TeV, e_max=330 * u.TeV)
+    bins, bin_center, bin_widths = make_default_cta_binning(e_min=0.01 * u.TeV, e_max=250 * u.TeV,)
 
     x = df.mc_energy.values
     y = distance
 
     b_50, bin_edges, binnumber = binned_statistic(x, y, statistic=np.nanmedian, bins=bins)
+    b_84, _, _ = binned_statistic(x, y, statistic=lambda x: np.percentile(x, q=[84]), bins=bins)
+    b_16, _, _ = binned_statistic(x, y, statistic=lambda x: np.percentile(x, q=[16]), bins=bins)
 
-    bin_centers = np.sqrt(bin_edges[1:] * bin_edges[:-1])
 
-    log_emin, log_emax = np.log10(bins.min().value), np.log10(bins.max().value)
+    log_emin, log_emax = np.log10(0.007), np.log10(300)
 
     if not ax:
         fig, ax = plt.subplots(1, 1)
 
-    im = ax.hexbin(x, y, xscale='log', extent=(log_emin, log_emax, 0, 120), cmap=colormap, norm=PowerNorm(0.5))
-    add_colorbar_to_figure(im, fig, ax)
+    im = ax.hexbin(x, y, xscale='log', extent=(log_emin, log_emax, 0, 300), cmap=colormap, norm=PowerNorm(0.5))
+    add_colorbar_to_figure(im, fig, ax, label='Counts')
 
-    ax.plot(bin_centers, b_50, lw=2, color=color, label='Median')
+    # hardcore fix for stupi step plotting artifact
+    b_16[-1] = b_16[-2]
+    b_50[-1] = b_50[-2]
+    b_84[-1] = b_84[-2]
+    ax.step(bins[:-1], b_50, lw=2, color=color, label='Median Prediction', where='post')
+    ax.fill_between(bins[:-1], b_16, b_84, alpha=0.3, color=color, step='post')
 
     ax.set_xscale('log')
-    ax.set_ylabel('Distance to True Position / meter')
-    ax.set_xlabel(r'$E_{True} / TeV$')
-    ax.legend()
+    ax.set_ylabel('Distance to True Position / m')
+    ax.set_xlabel('True Energy / TeV')
+    ax.legend(framealpha=0.5)
+    plt.tight_layout(pad=0, rect=(0, 0, 1.003, 1))
     return ax
