@@ -62,7 +62,7 @@ def plot_angular_resolution(reconstructed_events, reference, plot_e_reco, ylog=F
         ax.set_xlabel('Estimated Energy / TeV')
     else:
         ax.set_xlabel('True Energy / TeV')
-    ax.legend(framealpha=0.5)
+    ax.legend(framealpha=0)
 
     df = pd.DataFrame({
         'energy_prediction': bin_centers,

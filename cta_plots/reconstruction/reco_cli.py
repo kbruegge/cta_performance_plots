@@ -3,6 +3,7 @@ import os
 import click
 import numpy as np
 import matplotlib.pyplot as plt
+import h5py
 from cta_plots import apply_cuts
 from cta_plots.reconstruction.angular_resolution import plot_angular_resolution, plot_angular_resolution_per_multiplicity
 from cta_plots.reconstruction.h_max import plot_h_max, plot_h_max_distance
@@ -25,6 +26,21 @@ def _apply_flags(ctx, axs, data=None):
         for ax in axs:
             ax.set_yscale('log')
 
+    if ctx.obj["DESC"]:
+        for ax in axs:
+            l = ax.get_legend()
+            # t = ''
+            s = ctx.obj["DESC"]
+            # if l.get_title():
+            #     t = l.get_title().get_text()
+            #     s += f'\n {t}'
+            l.set_title(s)
+            l._legend_box.align = "left"
+            l.get_title().set_alpha(0.5)
+
+            # from IPython import embed; embed()
+            # ax.text(0.02, 0.87, s=ctx.obj["DESC"], alpha=0.5, transform=ax.transAxes,)
+
     legend = ctx.obj["LEGEND"]
     if legend is False:
         for ax in axs:
@@ -40,15 +56,42 @@ def _apply_flags(ctx, axs, data=None):
         plt.show()
 
 
-def _load_data(path, dropna=True):
+def _load_data_description(path, data):
+    particle_dict = {0: 'Gamma', 1: 'Electron', 101: 'Proton'}
+    num_array_events = len(data)
+
+    with h5py.File(path, "r") as f:
+        group = f.get('runs')
+        if group is None:
+            raise IOError('File does not contain group "{}"'.format('runs'))
+        diffuse = group['mc_diffuse'][0] == 1
+        
+        group = f.get('array_events')
+        if group is None:
+            raise IOError('File does not contain group "{}"'.format('array_events'))
+        particle_type = particle_dict[group['mc_shower_primary_id'][0]]
+        
+    s = f'{particle_type}'
+    if diffuse:
+        s += ' Diffuse'
+    s += '\n'
+    s += f'\\num{{{num_array_events}}} Events'
+    return s
+
+
+def _column_exists(path, column, key):
+    with h5py.File(path, "r") as f:
+        group = f.get(key)
+        return column in group.keys()
+
+
+def _load_data(path, cuts_path=None, dropna=True):
     cols = [
         'mc_energy',
         'mc_alt',
         'mc_az',
         'alt',
         'az',
-        'gamma_prediction_mean',
-        'gamma_energy_prediction_mean',
         'num_triggered_telescopes',
         'num_triggered_lst',
         'num_triggered_sst',
@@ -62,7 +105,13 @@ def _load_data(path, dropna=True):
         'mc_core_y',
     ]
 
+    for col in ['gamma_energy_prediction_mean', 'gamma_prediction_mean']:
+        if _column_exists(path, col, 'array_events'):
+            cols.append(col)
+
     df, _, _ = load_signal_events(path, calculate_weights=False, columns=cols) 
+    if cuts_path:
+        df = apply_cuts(df, cuts_path, theta_cuts=False)
     if dropna:
         df.dropna(inplace=True)
     return df
@@ -73,11 +122,13 @@ def _load_data(path, dropna=True):
 @click.option("--dropna/--no-dropna", default=True)
 @click.option("--legend/--no-legend", default=True)
 @click.option("--ylog/--no-ylog", default=True)
+@click.option("--tag/--no-tag", default=True, help='flag to add informaiton text to plot')
 @click.option("--ylim", default=None, nargs=2, type=np.float)
 @click.option('-o', '--output', type=click.Path(exists=False))
+@click.option('-c', '--cuts_path', type=click.Path(exists=True))
 @click.argument('path', type=click.Path(exists=True))
 @click.pass_context
-def cli(ctx, path, debug, dropna, legend, ylog, ylim, output):
+def cli(ctx, path, debug, dropna, legend, ylog, ylim, tag, cuts_path, output):
     # ensure that ctx.obj exists and is a dict (in case `cli()` is called
     # by means other than the `if` block below
     # see https://click.palletsprojects.com/en/7.x/commands/#nested-handling-and-contexts
@@ -87,7 +138,10 @@ def cli(ctx, path, debug, dropna, legend, ylog, ylim, output):
     ctx.obj["LEGEND"] = legend
     ctx.obj["YLIM"] = ylim
     ctx.obj["YLOG"] = ylog
-    ctx.obj["DATA"] = _load_data(path, dropna)
+    data = _load_data(path, dropna=dropna, cuts_path=cuts_path)
+    ctx.obj["DATA"] = data
+    if tag:
+        ctx.obj["DESC"] = _load_data_description(path, data)
 
     if debug and ctx.invoked_subcommand is None:
         print("I was invoked without subcommand")
@@ -98,14 +152,11 @@ def cli(ctx, path, debug, dropna, legend, ylog, ylim, output):
 @cli.command()
 @click.option('--reference/--no-reference', default=False)
 @click.option('--plot_e_reco', is_flag=True, default=False)
-@click.option('-c', '--cuts_path', type=click.Path(exists=True))
 @click.pass_context
-def angular_resolution(ctx, reference, plot_e_reco, cuts_path):
+def angular_resolution(ctx, reference, plot_e_reco):
     reconstructed_events = ctx.obj["DATA"]
     ylog = ctx.obj["YLOG"]
     ylim = ctx.obj["YLIM"]
-    if cuts_path:
-        reconstructed_events = apply_cuts(reconstructed_events, cuts_path, theta_cuts=False)
     ax, df = plot_angular_resolution(reconstructed_events, reference, plot_e_reco, ylog=ylog, ylim=ylim)
     _apply_flags(ctx, ax, data=df)
 
@@ -113,25 +164,19 @@ def angular_resolution(ctx, reference, plot_e_reco, cuts_path):
 @cli.command()
 @click.option('--reference/--no-reference', default=False)
 @click.option('--plot_e_reco', is_flag=True, default=False)
-@click.option('-c', '--cuts_path', type=click.Path(exists=True))
 @click.pass_context
-def angular_resolution_multiplicity(ctx, reference, plot_e_reco, cuts_path):
+def angular_resolution_multiplicity(ctx, reference, plot_e_reco):
     reconstructed_events = ctx.obj["DATA"]
-    if cuts_path:
-        reconstructed_events = apply_cuts(reconstructed_events, cuts_path, theta_cuts=False, )
     ax = plot_angular_resolution_per_multiplicity(reconstructed_events, reference, plot_e_reco)
     _apply_flags(ctx, ax)
 
 
 @cli.command()
-@click.option('-c', '--cuts_path', type=click.Path(exists=True))
 @click.option('--color', default=main_color)
 @click.option('--cmap', default=default_cmap)
 @click.pass_context
-def h_max(ctx, cuts_path, color, cmap):
+def h_max(ctx, color, cmap):
     reconstructed_events = ctx.obj["DATA"]
-    if cuts_path:
-        reconstructed_events = apply_cuts(reconstructed_events, cuts_path, theta_cuts=False)
     ax = plot_h_max(reconstructed_events, color=color, colormap=cmap)
     _apply_flags(ctx, ax)
 
@@ -141,36 +186,28 @@ def h_max(ctx, cuts_path, color, cmap):
 @click.option('--color', default=main_color)
 @click.option('--cmap', default=default_cmap)
 @click.pass_context
-def h_max_distance(ctx, cuts_path, color, cmap):
+def h_max_distance(ctx, color, cmap):
     reconstructed_events = ctx.obj["DATA"]
-    if cuts_path:
-        reconstructed_events = apply_cuts(reconstructed_events, cuts_path, theta_cuts=False)
     ax = plot_h_max_distance(reconstructed_events, color=color, colormap=cmap)
     _apply_flags(ctx, ax)
 
 
 @cli.command()
-@click.option('-c', '--cuts_path', type=click.Path(exists=True))
 @click.option('--color', default=main_color)
 @click.option('--cmap', default=default_cmap)
 @click.pass_context
-def impact(ctx, cuts_path, color, cmap):
+def impact(ctx, color, cmap):
     reconstructed_events = ctx.obj["DATA"]
-    if cuts_path:
-        reconstructed_events = apply_cuts(reconstructed_events, cuts_path, theta_cuts=False)
     ax = plot_impact(reconstructed_events, color=color, colormap=cmap)
     _apply_flags(ctx, ax)
 
 
 @cli.command()
-@click.option('-c', '--cuts_path', type=click.Path(exists=True))
 @click.option('--color', default=main_color)
 @click.option('--cmap', default=default_cmap)
 @click.pass_context
-def impact_distance(ctx, cuts_path, color, cmap):
+def impact_distance(ctx, color, cmap):
     reconstructed_events = ctx.obj["DATA"]
-    if cuts_path:
-        reconstructed_events = apply_cuts(reconstructed_events, cuts_path, theta_cuts=False)
     ax = plot_impact_distance(reconstructed_events, color=color, colormap=cmap)
     _apply_flags(ctx, ax)
 

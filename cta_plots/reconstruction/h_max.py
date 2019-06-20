@@ -75,6 +75,6 @@ def plot_h_max(reconstructed_events, site='paranal', colormap=default_cmap, colo
     ax.set_xscale('log')
     ax.set_ylabel('Max Height / m')
     ax.set_xlabel('True Energy / TeV')
-    ax.legend(framealpha=0.5)
+    ax.legend(framealpha=0.0)
     plt.tight_layout(pad=0, rect=(0, 0, 1.003, 1))
     return ax
