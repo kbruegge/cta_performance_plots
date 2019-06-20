@@ -200,7 +200,15 @@ def auc_vs_energy(ctx, gammas, protons, sample, e_reco,):
 @click.option("-c", "--color", default="crimson")
 @click.pass_context
 def importances(ctx, model, color):
-    ax = plot_importances(model, color=color)
+    fig = plt.gcf()
+    size = list(fig.get_size_inches())
+    # print(size)
+    size[1] += 1.5
+    fig, ax = plt.subplots(1, 1, figsize=(size))
+    size = list(fig.get_size_inches())
+    # print(size)
+    ax = plot_importances(model, color=color, ax=ax)
+    plt.tight_layout(pad=0, rect=(-0.0135, 0, 1.006, 1))
     _apply_flags(ctx, ax)
 
 

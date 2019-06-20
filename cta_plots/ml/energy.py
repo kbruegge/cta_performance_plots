@@ -16,7 +16,7 @@ def plot_resolution(e_true, e_reco, color=main_color, reference=False, relative=
     if not ax:
         fig, ax = plt.subplots(1, 1)
 
-    e_min, e_max = 0.005 * u.TeV, 200 * u.TeV
+    e_min, e_max = 0.01 * u.TeV, 250 * u.TeV
     bins, bin_center, _ = make_default_cta_binning(e_min=e_min, e_max=e_max)
 
     if plot_e_reco:
@@ -35,16 +35,16 @@ def plot_resolution(e_true, e_reco, color=main_color, reference=False, relative=
     min_y = -0.5 if relative else 0
     bins_y = np.linspace(min_y, max_y, 40)
 
-    log_emin, log_emax = np.log10(bins.min().value), np.log10(bins.max().value)
-
+    log_emin, log_emax = np.log10(0.007), np.log10(300)
     if relative:
-        im = ax.hexbin(e_x, resolution, xscale='log', extent=(log_emin, log_emax, -1, max_y), cmap=default_cmap, norm=PowerNorm(0.5))
+        im = ax.hexbin(e_x, resolution, xscale='log', extent=(log_emin, log_emax, -1, max_y), cmap=default_cmap,)
     else:
-        im = ax.hexbin(e_x, np.abs(resolution), xscale='log', extent=(log_emin, log_emax, -1, max_y), cmap=default_cmap, norm=PowerNorm(0.5))
-    add_colorbar_to_figure(im, fig, ax)
+        im = ax.hexbin(e_x, np.abs(resolution), xscale='log', extent=(log_emin, log_emax, -1, max_y), cmap=default_cmap,)
+    
+    add_colorbar_to_figure(im, fig, ax, label='Counts')
 
     if relative:
-        label = '$0.5 \cdot IQR_{68}$ of $(E_R / E_T) - 1$'
+        label = '$\\frac{1}{2} \cdot \\text{IQR}_{68}$ of $(E_R / E_T) - 1$'
     else:
         label = '$Q_{68}$ of $abs((E_R /  E_T) - 1)$'
 
@@ -56,19 +56,21 @@ def plot_resolution(e_true, e_reco, color=main_color, reference=False, relative=
 
     ax.set_xscale('log')
 
-    ax.set_ylabel('$\\frac{E_R}{E_T} - 1$')
+    ax.set_ylabel('$\\frac{E_\\text{Est}}{E_\\text{T}} - 1$')
     if plot_e_reco:
-        ax.set_xlabel('$E_{Reco} / TeV$')
+        ax.set_xlabel('Estimated Energy / TeV')
     else:
-        ax.set_xlabel('$E_{True} / TeV$')
+        ax.set_xlabel('True Energy / TeV')
     
     ax.set_ylim([bins_y.min(), bins_y.max()])
-    ax.legend()
+    ax.set_xlim([0.007, 300])
+    ax.legend(framealpha=0)
 
     df = pd.DataFrame({
         'energy_prediction': bin_center,
         'resolution': iqr,
     })
+    plt.tight_layout(pad=0, rect=(0, 0, 1.002, 1))
     return ax, df
 
 

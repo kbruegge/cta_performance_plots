@@ -18,7 +18,7 @@ def plot_importances(model_path, color, ax=None):
     df = df.melt(var_name="feature", value_name="importance")
 
     if not ax:
-        fig, ax = plt.subplots(1, 1, figsize=(10, 7))
+        fig, ax = plt.subplots(1, 1)
 
     sns.boxplot(y="feature", x="importance", data=df, color="gray", fliersize=0, ax=ax)
     sns.stripplot(
@@ -30,6 +30,22 @@ def plot_importances(model_path, color, ax=None):
 
     ax.set_ylabel("")
     ax.set_xlabel("Feature Importance")
+    
+    def shorten_name(f):
+        if len(f) > 20:
+            return f'{f[:17]}...'
+        return f
+
+    feature_names = [shorten_name(f) for f in feature_names]
+    # from IPython import embed; embed()
+    feature_names = [f'{{ \\texttt{{{s}}}}}' for s in feature_names]
+    ax.set_yticklabels([f'{{ \\texttt{{{s}}}}}' for s in feature_names])
     ax.tick_params(axis="y", width=0)
+    ax.tick_params(axis='y', which='major', labelsize=6)
+    ax.tick_params(axis='y', which='minor', labelsize=6)
+
+    for l in ax.get_yticklabels():
+        l.set_ha('left')
+    ax.get_yaxis().set_tick_params(pad=70)
 
     return ax
