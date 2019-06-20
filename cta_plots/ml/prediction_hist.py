@@ -8,10 +8,43 @@ id_to_name = {1: "LST", 2: "MST", 3: "SST"}
 name_to_id = {"LST": 1, "MST": 2, "SST": 3}
 
 
-def plot_prediction_histogram(gammas, protons, what='mean', ax=None):
+def plot_quick_histogram(gamma_prediction, proton_prediction, ax=None):
     bins = np.linspace(0, 1, 100)
     if not ax:
         fig, ax = plt.subplots(1)
+
+    signal_color = 'C0'
+    h, _, _ = ax.hist(
+        gamma_prediction,
+        bins=bins,
+        histtype="stepfilled",
+        density=True,
+        linewidth=2,
+        color=signal_color,
+        facecolor=signal_color,
+        alpha=0.4,
+        label=None,
+    )
+    ax.hlines(h, bins[:-1], bins[1:], color=signal_color, label='Gamma')
+    h, _, _ = ax.hist(
+        proton_prediction,
+        bins=bins,
+        histtype="stepfilled",
+        density=True,
+        linewidth=2,
+        color='gray',
+        facecolor='gray',
+        alpha=0.4,
+        label=None,
+    )
+    ax.hlines(h, bins[:-1], bins[1:], color='gray', label='Proton')
+
+    ax.set_xlabel("Prediction Threshold")
+    ax.set_ylabel("Normalized Counts")
+    return ax
+
+
+def plot_prediction_histogram(gammas, protons, what='mean', ax=None):
     if what == "mean":
         gamma_prediction = gammas.groupby(["array_event_id", "run_id"])[
             "gamma_prediction"
@@ -26,6 +59,7 @@ def plot_prediction_histogram(gammas, protons, what='mean', ax=None):
             histtype="step",
             density=True,
             linewidth=2,
+            label='Gamma Prediction'
         )
         ax.hist(
             proton_prediction,
@@ -34,6 +68,7 @@ def plot_prediction_histogram(gammas, protons, what='mean', ax=None):
             density=True,
             linewidth=2,
             color="gray",
+            label='Proton Prediction'
         )
 
     if what == "weighted-mean":
@@ -140,5 +175,6 @@ def plot_prediction_histogram(gammas, protons, what='mean', ax=None):
 
         ax.legend(loc="upper left")
 
-    ax.set_xlabel("Classifier Score")
+    ax.set_xlabel("Prediction Threshold")
     ax.set_ylabel("Normalized Counts")
+    return ax

@@ -1,6 +1,8 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
+from matplotlib.collections import LineCollection
+
 from sklearn.metrics import roc_curve, roc_auc_score
 from mpl_toolkits.axes_grid1.inset_locator import zoomed_inset_axes, mark_inset
 from ..colors import telescope_color
@@ -13,7 +15,7 @@ name_to_id = {"LST": 1, "MST": 2, "SST": 3}
 id_to_name = {1: "LST", 2: "MST", 3: "SST"}
 
 
-def add_rectangles(ax, offset=0.1):
+def add_rectangles(ax, offset=0.15):
 
     kwargs = {"linewidth": 1, "edgecolor": "white", "facecolor": "white", "alpha": 0.6}
 
@@ -32,6 +34,60 @@ def add_rectangles(ax, offset=0.1):
     # bottom
     rect = patches.Rectangle((0 - offset, 0), 1 + offset, 0 - offset, **kwargs)
     ax.add_patch(rect)
+
+
+def plot_balanced_acc(prediction_gammas, prediction_protons, ax=None, cmap='magma'):
+    gamma_labels = np.ones_like(prediction_gammas)
+    proton_labels = np.zeros_like(prediction_protons)
+
+    y_score = np.hstack([prediction_gammas, prediction_protons])
+    y_true = np.hstack([gamma_labels, proton_labels])
+
+    fpr, tpr, threshold = roc_curve(y_true, y_score, pos_label=1)
+
+    # m  = (threshold >=0 ) & (threshold <= 1)
+    fpr, tpr, threshold = fpr[1:], tpr[1:], threshold[1:]
+    if not ax:
+        fig, ax = plt.subplots(1, 1)
+
+    tnr = 1 - fpr
+    bacc = 0.5 * (tpr + tnr)
+    ax.scatter(threshold, bacc, c=threshold, rasterized=True, s=3, cmap=cmap)
+
+    add_rectangles(ax)
+    
+    ax.set_ylabel('Balanced Accuracy')
+    ax.set_xlabel('Prediction Threshold')
+
+    ax.set_aspect('equal')
+    return ax
+
+
+def plot_quick_auc(prediction_gammas, prediction_protons, label='', ax=None, cmap='magma'):
+    # see https://matplotlib.org/3.1.0/gallery/lines_bars_and_markers/multicolored_line.html
+    # is ugly and why yoo slow. just rasterize scatter plot
+    if not ax:
+        fig, ax = plt.subplots(1, 1)
+    
+    gamma_labels = np.ones_like(prediction_gammas)
+    proton_labels = np.zeros_like(prediction_protons)
+
+    y_score = np.hstack([prediction_gammas, prediction_protons])
+    y_true = np.hstack([gamma_labels, proton_labels])
+
+    fpr, tpr, threshold = roc_curve(y_true, y_score, pos_label=1)
+    auc = roc_auc_score(y_true, y_score)
+
+    fpr, tpr, threshold = fpr[1:], tpr[1:], threshold[1:]
+
+    ax.scatter(fpr, tpr, c=threshold, rasterized=True, s=3, cmap=cmap)
+    ax.text(0.2, 0.2, f'area under curve:  {auc:.2f}', alpha=0.5)
+
+    add_rectangles(ax)
+    ax.set_ylabel('TPR')
+    ax.set_xlabel('FPR')
+    ax.set_aspect('equal')
+    return ax
 
 
 def plot_auc(gammas, protons, what='mean', inset=False, label='', ax=None):
@@ -110,6 +166,7 @@ def plot_auc(gammas, protons, what='mean', inset=False, label='', ax=None):
 
         # axins.spines.color = 'darkgray'
 
+    plt.tight_layout(pad=0)
     return ax
 
 

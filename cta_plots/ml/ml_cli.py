@@ -3,9 +3,9 @@ import os
 import click
 import matplotlib.pyplot as plt
 import numpy as np
-from cta_plots.ml.auc import plot_auc, plot_auc_per_type, plot_auc_vs_energy
+from cta_plots.ml.auc import plot_auc, plot_auc_per_type, plot_auc_vs_energy, plot_balanced_acc, plot_quick_auc
 from cta_plots.ml.importances import plot_importances
-from cta_plots.ml.prediction_hist import plot_prediction_histogram
+from cta_plots.ml.prediction_hist import plot_prediction_histogram, plot_quick_histogram
 from cta_plots.ml.energy import plot_resolution, plot_bias
 import fact.io
 from .. import load_signal_events, apply_cuts
@@ -228,6 +228,47 @@ def importances(ctx, model, color):
 def histogram(ctx, gammas, protons, what,):
     gammas, protons = _load_telescope_data(gammas, protons)
     ax = plot_prediction_histogram(gammas, protons, what)
+    ax.set_xlim([0, 1])
+    ax.legend()
+    plt.tight_layout(pad=0)
+    _apply_flags(ctx, ax)
+
+
+@cli.command()
+@click.argument("gammas", type=click.Path())
+@click.argument("protons", type=click.Path())
+@click.option("--box/--no-box", default=True)
+@click.pass_context
+def roc_acc(ctx, gammas, protons, box,):
+    fig, [ax1, ax2] = plt.subplots(1, 2, dpi=400)
+
+    cmap = 'plasma'
+    gamma_prediction, protons_prediction = _load_predictions(gammas, protons)
+    plot_quick_auc(gamma_prediction, protons_prediction, ax=ax1, cmap=cmap)
+
+    plot_balanced_acc(gamma_prediction, protons_prediction, ax=ax2, cmap=cmap)
+
+    ax1.set_ylim([-0.075, 1.075])
+    ax1.set_xlim([-0.075, 1.075])    
+    
+    ax2.set_ylim([-0.075, 1.075])
+    ax2.set_xlim([-0.075, 1.075])
+
+    plt.tight_layout(pad=0, rect=(-0.002, 0, 1.00, 1))
+    plt.subplots_adjust(wspace=0.23)
+    _apply_flags(ctx, ax1)
+
+@cli.command()
+@click.argument("gammas", type=click.Path())
+@click.argument("protons", type=click.Path())
+@click.option("--box/--no-box", default=True)
+@click.pass_context
+def hist(ctx, gammas, protons, box,):
+    gamma_prediction, protons_prediction = _load_predictions(gammas, protons)
+    ax = plot_quick_histogram(gamma_prediction, protons_prediction,)
+    ax.legend()
+
+    plt.tight_layout(pad=0)
     _apply_flags(ctx, ax)
 
 
