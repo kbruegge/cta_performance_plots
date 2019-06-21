@@ -8,7 +8,7 @@ from cta_plots import apply_cuts
 from cta_plots.reconstruction.angular_resolution import plot_angular_resolution, plot_angular_resolution_per_multiplicity
 from cta_plots.reconstruction.h_max import plot_h_max, plot_h_max_distance
 from cta_plots.reconstruction.impact import plot_impact, plot_impact_distance
-from cta_plots import load_signal_events
+from cta_plots import load_signal_events, load_data_description
 from cta_plots.colors import main_color, default_cmap
 
 
@@ -55,28 +55,6 @@ def _apply_flags(ctx, axs, data=None):
     else:
         plt.show()
 
-
-def _load_data_description(path, data):
-    particle_dict = {0: 'Gamma', 1: 'Electron', 101: 'Proton'}
-    num_array_events = len(data)
-
-    with h5py.File(path, "r") as f:
-        group = f.get('runs')
-        if group is None:
-            raise IOError('File does not contain group "{}"'.format('runs'))
-        diffuse = group['mc_diffuse'][0] == 1
-        
-        group = f.get('array_events')
-        if group is None:
-            raise IOError('File does not contain group "{}"'.format('array_events'))
-        particle_type = particle_dict[group['mc_shower_primary_id'][0]]
-        
-    s = f'{particle_type}'
-    if diffuse:
-        s += ' Diffuse'
-    s += '\n'
-    s += f'\\num{{{num_array_events}}} Events'
-    return s
 
 
 def _column_exists(path, column, key):
@@ -141,7 +119,7 @@ def cli(ctx, path, debug, dropna, legend, ylog, ylim, tag, cuts_path, output):
     data = _load_data(path, dropna=dropna, cuts_path=cuts_path)
     ctx.obj["DATA"] = data
     if tag:
-        ctx.obj["DESC"] = _load_data_description(path, data)
+        ctx.obj["DESC"] = load_data_description(path, data)
 
     if debug and ctx.invoked_subcommand is None:
         print("I was invoked without subcommand")

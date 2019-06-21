@@ -40,6 +40,7 @@ def plot_h_max_distance(reconstructed_events, site='paranal', colormap=default_c
     ax.set_xscale('log')
     ax.set_ylabel('Distance to true H max  / meter')
     ax.set_xlabel(r'$E_{True} / TeV$')
+    ax.set_xlim([0.007, 300])
     return ax
 
 
@@ -50,7 +51,7 @@ def plot_h_max(reconstructed_events, site='paranal', colormap=default_cmap, colo
 
     mc_h_max = altitude(df.mc_x_max.values * u.Unit('g/cm^2')).value
 
-    bins, bin_center, bin_widths = make_default_cta_binning(e_min=0.01 * u.TeV, e_max=250 * u.TeV,)
+    bins, bin_center, bin_widths = make_default_cta_binning(e_min=0.01 * u.TeV, e_max=200 * u.TeV,)
     x = df.mc_energy.values
 
     b_50, bin_edges, binnumber = binned_statistic(x, df.h_max, statistic='median', bins=bins)
@@ -65,16 +66,18 @@ def plot_h_max(reconstructed_events, site='paranal', colormap=default_cmap, colo
     im = ax.hexbin(x, mc_h_max, xscale='log', extent=(log_emin, log_emax, 0, 17500), cmap=colormap, norm=PowerNorm(0.5))
     add_colorbar_to_figure(im, fig, ax, label='Counts')
 
-    # hardcore fix for stupi step plotting artifact
-    b_16[-1] = b_16[-2]
-    b_50[-1] = b_50[-2]
-    b_84[-1] = b_84[-2]
-    ax.step(bins[:-1], b_50, lw=2, color=color, label='Median Prediction', where='post')
+    # ax.step(bins[:-1], b_50, lw=2, color=color, label='Median Prediction', where='post')
+    ax.hlines(b_50[:-1], bins[:-2], bins[1:-1], lw=2, color=color, label='Median Prediction')
+    # hardcore fix for stupid step plotting artifact
+    # b_16[-1] = b_16[-2]
+    # b_50[-1] = b_50[-2]
+    # b_84[-1] = b_84[-2]
     ax.fill_between(bins[:-1], b_16, b_84, alpha=0.3, color=color, step='post')
 
     ax.set_xscale('log')
     ax.set_ylabel('Max Height / m')
     ax.set_xlabel('True Energy / TeV')
     ax.legend(framealpha=0.0)
+    ax.set_xlim([0.007, 300])
     plt.tight_layout(pad=0, rect=(0, 0, 1.003, 1))
     return ax

@@ -37,6 +37,7 @@ setup(
             'cta_plot_effective_area = cta_plots.sensitivity.effective_area:main',
             'cta_plot_sensitivity = cta_plots.sensitivity.sensitivity:main',
             'cta_plot_theta_square = cta_plots.sensitivity.theta_squared:main',
+            'cta_plot_theta_square_grid = cta_plots.sensitivity.theta_square_grid:main',
             'cta_plot_ml = cta_plots.ml.ml_cli:cli',
             'cta_plot_reco = cta_plots.reconstruction.reco_cli:cli',
             'cta_plot_irf = cta_plots.irf.irf_cli:cli',

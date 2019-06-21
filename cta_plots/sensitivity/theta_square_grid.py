@@ -7,12 +7,13 @@ from cta_plots.coordinate_utils import (
     calculate_distance_to_true_source_position,
     calculate_distance_to_point_source,
 )
-from cta_plots.mc.spectrum import MCSpectrum, CrabSpectrum, CosmicRaySpectrum, CTAElectronSpectrum
+from cta_plots.spectrum import MCSpectrum, CrabSpectrum, CosmicRaySpectrum, CTAElectronSpectrum
 import matplotlib.offsetbox as offsetbox
 from fact.io import read_data
-from cta_plots.coordinate_utils import load_signal_events, load_background_events, ELECTRON_TYPE
-from cta_plots.coordinate_utils import find_best_detection_significance
-from cta_plots import make_energy_bins
+from cta_plots import load_signal_events, load_background_events, ELECTRON_TYPE
+# from cta_plots import load_signal_events, load_background_events, ELECTRON_TYPE
+from cta_plots.sensitivity.optimize import find_best_cuts
+from cta_plots.binning import make_energy_bins
 from tqdm import tqdm
 
 
@@ -43,7 +44,7 @@ def add_theta_square_histogram(gammas_gammalike, background_gammalike, theta_squ
 
 
 def add_text_to_axis(
-    gammas_gammalike, background_gammalike, best_prediction_cut, best_theta_square_cut, best_significance, ax
+    gammas_gammalike, background_gammalike, best_prediction_cut, best_theta_square_cut, best_significance, e_low, e_high, ax
 ):
     textstr = '\n'.join(
         [
@@ -51,6 +52,7 @@ def add_text_to_axis(
             f'Cuts: {best_theta_square_cut:.3f},  {best_prediction_cut:.3f}',
             f'Total Signal: {len(gammas_gammalike)}',
             f'Total Bkg: {len(background_gammalike)}',
+            f'Energy Range {e_low:.3f}, {e_high:.3f}'
         ]
     )
     ob = offsetbox.AnchoredText(textstr, loc=1, prop={'fontsize': 7})
@@ -77,8 +79,9 @@ def main(gammas_path, protons_path, electrons_path, output):
     e_min, e_max = 0.02 * u.TeV, 200 * u.TeV
     bin_edges, _, _ = make_energy_bins(e_min=e_min, e_max=e_max, bins=n_bins, centering='log')
 
-    theta_square_cuts = np.arange(0.005, 0.2, 0.005)
-    prediction_cuts = np.arange(0.2, 1, 0.05)
+    theta_square_cuts = np.arange(0.01, 0.35, 0.02)
+    prediction_cuts = np.arange(0.3, 1, 0.05)
+    multiplicities = [2, 3, 4, 5, 6, 7]
 
     rows = int(np.sqrt(len(bin_edges)) + 1)
     cols = int(np.sqrt(len(bin_edges)))
@@ -93,10 +96,10 @@ def main(gammas_path, protons_path, electrons_path, output):
     iterator = zip(g, b, axs.ravel())
     # alpha = 0.2
 
-    for (_, signal_in_range ), (_, background_in_range), ax in tqdm(iterator, total=n_bins):
+    for (n, signal_in_range), (_, background_in_range), ax in tqdm(iterator, total=n_bins):
         # print(f'Energy mean before passing data: {signal_in_range.gamma_energy_prediction_mean.mean()}')
-        best_prediction_cut, best_theta_square_cut, best_significance = find_best_detection_significance(
-            theta_square_cuts, prediction_cuts, signal_in_range, background_in_range, alpha=1,
+        best_sensitivity, best_prediction_cut, best_theta_cut, best_significance, best_mult = find_best_cuts(
+            theta_square_cuts, prediction_cuts, multiplicities, signal_in_range, background_in_range, alpha=1, criterion='significance', n_jobs=8
         )
         # print('--//----'*10)
         # print(f'Best prediction cut {best_prediction_cut}')
@@ -104,13 +107,15 @@ def main(gammas_path, protons_path, electrons_path, output):
         gammas_gammalike = signal_in_range[signal_in_range.gamma_prediction_mean >= best_prediction_cut]
         background_gammalike = background_in_range[background_in_range.gamma_prediction_mean >= best_prediction_cut]
 
-        add_theta_square_histogram(gammas_gammalike, background_gammalike, best_theta_square_cut, ax)
+        add_theta_square_histogram(gammas_gammalike, background_gammalike, best_theta_cut, ax)
         add_text_to_axis(
             gammas_gammalike,
             background_gammalike,
             best_prediction_cut,
-            best_theta_square_cut,
+            best_theta_cut,
             best_significance,
+            n.left,
+            n.right,
             ax,
         )
 

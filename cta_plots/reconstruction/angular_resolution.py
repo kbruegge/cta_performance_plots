@@ -18,7 +18,7 @@ def plot_angular_resolution(reconstructed_events, reference, plot_e_reco, ylog=F
     df = reconstructed_events
     distance = calculate_distance_to_true_source_position(df)
 
-    e_min, e_max = 0.01 * u.TeV, 250 * u.TeV
+    e_min, e_max = 0.01 * u.TeV, 180 * u.TeV
     bins, bin_center, _ = make_default_cta_binning(e_min=e_min, e_max=e_max)
 
 
@@ -48,8 +48,9 @@ def plot_angular_resolution(reconstructed_events, reference, plot_e_reco, ylog=F
     add_colorbar_to_figure(im, fig, ax, label='Counts')
     
     # hardcore fix for stupi step plotting artifact
-    b_68[-1] = b_68[-2]
-    ax.step(bin_edges[:-1], b_68, where='post', lw=2, color=main_color, label='68\\textsuperscript{th} Percentile')
+    # b_68[-1] = b_68[-2]
+    # ax.step(bin_edges[:-1], b_68, where='post', lw=2, color=main_color, label='68\\textsuperscript{th} Percentile')
+    ax.hlines(b_68, bins[:-1], bins[1:], lw=2, color=main_color, label='68\\textsuperscript{th} Percentile')
 
     if reference:
         df = load_angular_resolution_requirement()
@@ -76,7 +77,7 @@ def plot_angular_resolution(reconstructed_events, reference, plot_e_reco, ylog=F
 def plot_angular_resolution_per_multiplicity(reconstructed_events, reference, plot_e_reco, ax=None):
     df_all = reconstructed_events
 
-    e_min, e_max = 0.01 * u.TeV, 250 * u.TeV
+    e_min, e_max = 0.01 * u.TeV, 200 * u.TeV
     bins, bin_center, bin_width = make_default_cta_binning(e_min=e_min, e_max=e_max)
 
     if not ax:
@@ -98,14 +99,15 @@ def plot_angular_resolution_per_multiplicity(reconstructed_events, reference, pl
         b_68, _, _ = binned_statistic(x, distance, statistic=lambda y: np.nanpercentile(y, 68), bins=bins)
 
         # hardcore fix for stupi step plotting artifact
-        b_68[-1] = b_68[-2]
-        ax.step(
-            bins[:-1],
-            b_68,
-            where='post',
-            color=color,
-            label=m,
-        )
+        ax.hlines(b_68, bins[:-1], bins[1:], lw=2, color=color, label=m)
+        # b_68[-1] = b_68[-2]
+        # ax.step(
+        #     bins[:-1],
+        #     b_68,
+        #     where='post',
+        #     color=color,
+        #     label=m,
+        # )
 
     if reference:
         df = load_angular_resolution_requirement()

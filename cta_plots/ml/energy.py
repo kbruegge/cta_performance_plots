@@ -6,17 +6,17 @@ from scipy.stats import binned_statistic
 from . import load_energy_resolution_reference
 from ..binning import make_default_cta_binning
 from matplotlib.colors import PowerNorm
-from cta_plots.colors import default_cmap, main_color
+from cta_plots.colors import default_cmap, main_color, main_color_complement
 
 from .. import add_colorbar_to_figure
 
 
-def plot_resolution(e_true, e_reco, color=main_color, reference=False, relative=False, plot_e_reco=False, ax=None):
+def plot_resolution(e_true, e_reco, color='#5f218c', reference=False, relative=False, plot_e_reco=False, ax=None):
 
     if not ax:
         fig, ax = plt.subplots(1, 1)
 
-    e_min, e_max = 0.01 * u.TeV, 250 * u.TeV
+    e_min, e_max = 0.01 * u.TeV, 180 * u.TeV
     bins, bin_center, _ = make_default_cta_binning(e_min=e_min, e_max=e_max)
 
     if plot_e_reco:
@@ -43,10 +43,7 @@ def plot_resolution(e_true, e_reco, color=main_color, reference=False, relative=
     
     add_colorbar_to_figure(im, fig, ax, label='Counts')
 
-    if relative:
-        label = '$\\frac{1}{2} \cdot \\text{IQR}_{68}$ of $(E_R / E_T) - 1$'
-    else:
-        label = '$Q_{68}$ of $abs((E_R /  E_T) - 1)$'
+    label = 'Energy Resolution'
 
     ax.hlines(iqr, bins[:-1], bins[1:], lw=2, color=color, label=label)
 

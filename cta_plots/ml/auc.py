@@ -17,7 +17,7 @@ id_to_name = {1: "LST", 2: "MST", 3: "SST"}
 
 def add_rectangles(ax, offset=0.15):
 
-    kwargs = {"linewidth": 1, "edgecolor": "white", "facecolor": "white", "alpha": 0.6}
+    kwargs = {"linewidth": 1, "edgecolor": "none", "facecolor": "white", "alpha": 0.6, 'zorder':-10}
 
     # left
     rect = patches.Rectangle((0 - offset, 0), 0 + offset, 1 + offset, **kwargs)
@@ -49,12 +49,12 @@ def plot_balanced_acc(prediction_gammas, prediction_protons, ax=None, cmap='magm
     fpr, tpr, threshold = fpr[1:], tpr[1:], threshold[1:]
     if not ax:
         fig, ax = plt.subplots(1, 1)
+    add_rectangles(ax)
 
     tnr = 1 - fpr
     bacc = 0.5 * (tpr + tnr)
     ax.scatter(threshold, bacc, c=threshold, rasterized=True, s=3, cmap=cmap)
 
-    add_rectangles(ax)
     
     ax.set_ylabel('Balanced Accuracy')
     ax.set_xlabel('Prediction Threshold')
@@ -69,6 +69,7 @@ def plot_quick_auc(prediction_gammas, prediction_protons, label='', ax=None, cma
     if not ax:
         fig, ax = plt.subplots(1, 1)
     
+    add_rectangles(ax)
     gamma_labels = np.ones_like(prediction_gammas)
     proton_labels = np.zeros_like(prediction_protons)
 
@@ -83,7 +84,6 @@ def plot_quick_auc(prediction_gammas, prediction_protons, label='', ax=None, cma
     ax.scatter(fpr, tpr, c=threshold, rasterized=True, s=3, cmap=cmap)
     ax.text(0.2, 0.2, f'area under curve:  {auc:.2f}', alpha=0.5)
 
-    add_rectangles(ax)
     ax.set_ylabel('TPR')
     ax.set_xlabel('FPR')
     ax.set_aspect('equal')

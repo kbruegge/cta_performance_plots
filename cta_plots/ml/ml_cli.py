@@ -8,12 +8,23 @@ from cta_plots.ml.importances import plot_importances
 from cta_plots.ml.prediction_hist import plot_prediction_histogram, plot_quick_histogram
 from cta_plots.ml.energy import plot_resolution, plot_bias
 import fact.io
-from .. import load_signal_events, apply_cuts
+from .. import load_signal_events, apply_cuts, load_data_description
 
 
 def _apply_flags(ctx, ax, data=None):
     if ctx.obj["YLIM"]:
         ax.set_ylim(ctx.obj["YLIM"])
+
+    if ctx.obj["DESC"]:
+        legend = ax.get_legend()
+        # t = ''
+        s = ctx.obj["DESC"]
+        # if l.get_title():
+        #     t = l.get_title().get_text()
+        #     s += f'\n {t}'
+        legend.set_title(s)
+        legend._legend_box.align = "left"
+        legend.get_title().set_alpha(0.5)
 
     output = ctx.obj["OUTPUT"]
     if output:
@@ -88,6 +99,9 @@ def cli(ctx, debug, ylim, output):
     ctx.obj["DEBUG"] = debug
     ctx.obj["OUTPUT"] = output
     ctx.obj["YLIM"] = ylim
+    ctx.obj["DESC"] = None
+    
+
     if debug and ctx.invoked_subcommand is None:
         click.echo("I was invoked without subcommand")
     elif debug:
@@ -95,19 +109,25 @@ def cli(ctx, debug, ylim, output):
 
 
 @cli.command()
-@click.argument("reconstructed_events", type=click.Path())
+@click.argument("path", type=click.Path())
 @click.option('--reference/--no-reference', default=False)
 @click.option('--relative/--no-relative', default=True)
 @click.option('--plot_e_reco', is_flag=True, default=False)
+@click.option("--tag/--no-tag", default=True, help='flag to add informaiton text to plot')
 @click.option('-c', '--cuts_path', type=click.Path(exists=True))
 @click.pass_context
-def energy_resolution(ctx, reconstructed_events, reference, relative, plot_e_reco, cuts_path):
-    reconstructed_events = _load_data(reconstructed_events, dropna=True)
+def energy_resolution(ctx, path, reference, relative, plot_e_reco, tag, cuts_path):
+    reconstructed_events = _load_data(path, dropna=True)
     if cuts_path:
         reconstructed_events = apply_cuts(reconstructed_events, cuts_path)
+
     e_true = reconstructed_events.mc_energy
     e_reco = reconstructed_events.gamma_energy_prediction_mean
     ax, df = plot_resolution(e_true, e_reco, reference=reference, relative=relative, plot_e_reco=plot_e_reco)
+    
+    if tag:
+        ctx.obj["DESC"] = load_data_description(path, reconstructed_events)
+    
     _apply_flags(ctx, ax, data=df)
 
 
@@ -248,7 +268,7 @@ def histogram(ctx, gammas, protons, what,):
 @click.option("--box/--no-box", default=True)
 @click.pass_context
 def roc_acc(ctx, gammas, protons, box,):
-    fig, [ax1, ax2] = plt.subplots(1, 2, dpi=400)
+    fig, [ax1, ax2] = plt.subplots(1, 2, dpi=800)
 
     cmap = 'plasma'
     gamma_prediction, protons_prediction = _load_predictions(gammas, protons)

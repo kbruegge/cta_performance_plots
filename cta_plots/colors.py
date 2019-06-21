@@ -24,7 +24,7 @@ telescope_color_complementary = {
 
 
 main_color = '#4386dd'
-main_color_complement = '#d63434'
+main_color_complement = '#cc2a36'
 dark_main_color = '#707070'
 
 color_pallete = [
@@ -39,3 +39,11 @@ color_pallete = [
 color_cycle = cycle(color_pallete)
 
 default_cmap = 'RdPu'
+
+#E24A33 
+#348ABD 
+#988ED5 
+#777777 
+#FBC15E 
+#8EBA42 
+#FFB5B8 

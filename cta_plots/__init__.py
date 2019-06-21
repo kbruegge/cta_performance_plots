@@ -5,6 +5,7 @@ from colorama import Fore
 from fact.io import read_data
 from scipy.interpolate import interp1d
 from scipy.ndimage import gaussian_filter1d
+import h5py
 
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 
@@ -16,6 +17,29 @@ from . import spectrum
 # define these constants to identify electrons and protons in background data
 ELECTRON_TYPE = 1
 PROTON_TYPE = 0
+
+
+def load_data_description(path, data):
+    particle_dict = {0: 'Gamma', 1: 'Electron', 101: 'Proton'}
+    num_array_events = len(data)
+
+    with h5py.File(path, "r") as f:
+        group = f.get('runs')
+        if group is None:
+            raise IOError('File does not contain group "{}"'.format('runs'))
+        diffuse = group['mc_diffuse'][0] == 1
+        
+        group = f.get('array_events')
+        if group is None:
+            raise IOError('File does not contain group "{}"'.format('array_events'))
+        particle_type = particle_dict[group['mc_shower_primary_id'][0]]
+        
+    s = f'{particle_type}'
+    if diffuse:
+        s += ' Diffuse'
+    s += '\n'
+    s += f'\\num{{{num_array_events}}} Events'
+    return s
 
 
 def load_angular_resolution_function(angular_resolution_path, sigma=1):
