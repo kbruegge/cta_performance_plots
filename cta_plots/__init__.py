@@ -71,7 +71,7 @@ def apply_cuts(df, cuts_path, sigma=1, theta_cuts=True, prediction_cuts=True, mu
 
         df['theta'] = (calculate_distance_to_point_source(df, source_alt=source_alt, source_az=source_az).to_value(u.deg))
 
-        f_theta = create_interpolated_function(bin_center, cuts.theta_cut)
+        f_theta = create_interpolated_function(bin_center, cuts.theta_cut, sigma=sigma)
         m &= df.theta < f_theta(df.gamma_energy_prediction_mean)
 
     if prediction_cuts: 
@@ -98,6 +98,10 @@ DEFAULT_COLUMNS = [
     'num_triggered_telescopes',
     'total_intensity',
 ]
+
+
+def load_runs(path):
+    return read_data(path, key='runs')
 
 
 def load_signal_events(gammas_path, assumed_obs_time=30 * u.min, columns=DEFAULT_COLUMNS, calculate_weights=True):

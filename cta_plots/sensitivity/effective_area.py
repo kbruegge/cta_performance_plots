@@ -9,7 +9,7 @@ from cta_plots.binning import make_default_cta_binning
 from cta_plots.sensitivity import load_effective_area_reference
 from cta_plots.spectrum import MCSpectrum
 from cta_plots.colors import color_cycle
-from fact.io import read_data
+from cta_plots import load_signal_events, apply_cuts, load_runs
 
 
 @click.command()
@@ -22,14 +22,16 @@ from fact.io import read_data
 @click.option('--reference/--no-reference', default=True)
 def main(input_file, label, output, multiplicity, threshold, cuts_path, reference):
 
-    bins, bin_center, bin_widths = make_default_cta_binning(e_min=0.005 * u.TeV)
+    bins, bin_center, bin_widths = make_default_cta_binning(e_min=0.005 * u.TeV, bins_per_decade=15)
 
-    gammas = read_data(input_file, key='array_events')
+    gammas, _, _ = load_signal_events(input_file, calculate_weights=False, )
 
     if multiplicity > 2:
         gammas = gammas.query(f'num_triggered_telescopes >= {multiplicity}').copy()
 
-    runs = read_data(input_file, key='runs')
+    gammas = apply_cuts(gammas, cuts_path=cuts_path, sigma=1)
+
+    runs = load_runs(input_file)
     mc_production = MCSpectrum.from_cta_runs(runs)
 
     if not threshold:
@@ -79,15 +81,16 @@ def main(input_file, label, output, multiplicity, threshold, cuts_path, referenc
         df = load_effective_area_reference()
         plt.plot(df.energy, df.effective_area, '--', color='gray', label='Prod3b reference')
 
-    plt.legend()
+    plt.legend(framealpha=0)
 
 
     plt.ylim([100, 1E8])
     plt.xscale('log')
     plt.yscale('log')
-    plt.xlabel(r'$E_{\mathrm{Reco}} /  \mathrm{TeV}$')
-    plt.ylabel(r'$\mathrm{Mean Effective\; Area} / \mathrm{m}^2$')
-    plt.tight_layout()
+    plt.xlabel('Estimated Energy / TeV')
+    plt.ylabel('Effective Area / $\\text{m}^2$')
+    plt.tight_layout(pad=0, rect=(0.001, 0, 1, 0.99))
+
     if output:
         plt.savefig(output)
     else:

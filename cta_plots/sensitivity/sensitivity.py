@@ -24,8 +24,9 @@ crab = CrabSpectrum()
 def calc_relative_sensitivity(gammas, background, bin_edges, alpha=0.2, n_jobs=4):
     results = []
 
-    theta_cuts = np.arange(0.01, 0.6, 0.025)
-    prediction_cuts = np.arange(0.3, 1, 0.05)
+    theta_cuts = np.arange(0.025, 0.6, 0.025)
+    prediction_cuts = np.arange(0.1, 1, 0.05)
+    print(prediction_cuts)
     multiplicities = np.arange(2, 10)
 
     # theta_cuts = np.arange(0.01, 0.40, 0.05)
