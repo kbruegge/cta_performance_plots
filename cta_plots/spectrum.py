@@ -270,7 +270,7 @@ class CrabLogParabolaMagic(Spectrum):
     https://arxiv.org/pdf/1406.6892.pdf
     '''
 
-    def __init__(self, index=-2.47, normalization_constant=3.23E-11 * u.Unit('cm-2 s-1 TeV-1'), beta=-0.24):
+    def __init__(self, index=-2.47, normalization_constant=3.23E-8 * u.Unit('cm-2 s-1 GeV-1'), beta=-0.24):
         self.index = index
         self.normalization_constant = normalization_constant
         self.beta = beta
@@ -299,7 +299,7 @@ class CTAElectronSpectrum(Spectrum):
     See the IRF ASWG report page 22 and 23
     '''
 
-    def __init__(self, index=-3.43, normalization_constant=2.385E-9 * u.Unit('cm-2 s-1 TeV-1 sr-1')):
+    def __init__(self, index=-3.43, normalization_constant=2.385E-12 * u.Unit('cm-2 s-1 GeV-1 sr-1')):
         self.index = index
         self.normalization_constant = normalization_constant
 
@@ -341,7 +341,7 @@ class CTAProtonSpectrum(Spectrum):
     Protons Spectrum as used by the CTA ASWG.
     '''
 
-    def __init__(self, index=-2.62, normalization_constant=9.8E-6 / (u.sr * u.s * u.cm**2 * u.TeV)):
+    def __init__(self, index=-2.7, normalization_constant=9.6E-9 / (u.sr * u.s * u.cm**2 * u.GeV)):
         self.index = index
         self.normalization_constant = normalization_constant
 

@@ -6,7 +6,7 @@ import numpy as np
 from cta_plots.ml.auc import plot_auc, plot_auc_per_type, plot_auc_vs_energy, plot_balanced_acc, plot_quick_auc
 from cta_plots.ml.importances import plot_importances
 from cta_plots.ml.prediction_hist import plot_prediction_histogram, plot_quick_histogram
-from cta_plots.ml.energy import plot_resolution, plot_bias
+from cta_plots.ml.energy import plot_resolution
 import fact.io
 from .. import load_signal_events, apply_cuts, load_data_description
 
@@ -128,20 +128,6 @@ def energy_resolution(ctx, path, reference, relative, plot_e_reco, tag, cuts_pat
     if tag:
         ctx.obj["DESC"] = load_data_description(path, reconstructed_events)
     
-    _apply_flags(ctx, ax, data=df)
-
-
-@cli.command()
-@click.argument("reconstructed_events", type=click.Path())
-@click.option('-c', '--cuts_path', type=click.Path(exists=True))
-@click.pass_context
-def energy_bias(ctx, reconstructed_events, cuts_path):
-    reconstructed_events = _load_data(reconstructed_events, dropna=True)
-    if cuts_path:
-        reconstructed_events = apply_cuts(reconstructed_events, cuts_path)
-    e_true = reconstructed_events.mc_energy
-    e_reco = reconstructed_events.gamma_energy_prediction_mean
-    ax, df = plot_bias(e_true, e_reco)
     _apply_flags(ctx, ax, data=df)
 
 

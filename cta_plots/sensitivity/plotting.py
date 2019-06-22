@@ -13,8 +13,12 @@ def plot_crab_flux(bin_edges, ax=None, curved=True):
         crab = CrabSpectrum()
     if not ax:
         ax = plt.gca()
+    e = np.logspace(-2, 2, 300)  * u.TeV
+    flux = (crab.flux(e) * e ** 2).to_value(
+        u.erg / (u.s * u.cm ** 2)
+    )
     ax.plot(
-        bin_edges, crab.flux(bin_edges) * bin_edges ** 2, ls=':', lw=1, color='#a3a3a3', label='Crab Flux'
+        e, flux, ls='-', color='#a3a3a3', label='Crab Flux', lw=0.7,
     )
     return ax
 
@@ -24,7 +28,7 @@ def plot_requirement(ax=None):
     if not ax:
         ax = plt.gca()
     ax.plot(df.energy, df.sensitivity, color='#888888', lw=1.2, label='Requirement Offline')
-    ax.plot(df.energy, df.sensitivity * 3, color='#bebebe', lw=0.5, label='Requirement Real Time')
+    # ax.plot(df.energy, df.sensitivity * 3, color='#bebebe', lw=0.5, label='Requirement Real Time')
     return ax
 
 
@@ -45,22 +49,23 @@ def plot_reference(ax=None):
 
 
 def plot_sensitivity(rs, bin_edges, bin_center, color='blue', ax=None, **kwargs):
-    crab = CrabSpectrum()
-    sensitivity = rs.sensitivity.values * (crab.flux(bin_center) * bin_center ** 2).to(
+    crab = CrabLogParabola()
+    
+    sensitivity = rs.sensitivity.values * (crab.flux(bin_center) * bin_center ** 2).to_value(
         u.erg / (u.s * u.cm ** 2)
     )
-    sensitivity_low = rs.sensitivity_low.values * (crab.flux(bin_center) * bin_center ** 2).to(
+    sensitivity_low = rs.sensitivity_low.values * (crab.flux(bin_center) * bin_center ** 2).to_value(
         u.erg / (u.s * u.cm ** 2)
     )
-    sensitivity_high = rs.sensitivity_high.values * (crab.flux(bin_center) * bin_center ** 2).to(
+    sensitivity_high = rs.sensitivity_high.values * (crab.flux(bin_center) * bin_center ** 2).to_value(
         u.erg / (u.s * u.cm ** 2)
     )
-    xerr = [np.abs(bin_edges[:-1] - bin_center).value, np.abs(bin_edges[1:] - bin_center).value]
-    yerr = [np.abs(sensitivity - sensitivity_low).value, np.abs(sensitivity - sensitivity_high).value]
+    xerr = [np.abs(bin_edges[:-1] - bin_center).to_value('TeV'), np.abs(bin_edges[1:] - bin_center).to_value('TeV')]
+    yerr = [np.abs(sensitivity - sensitivity_low), np.abs(sensitivity - sensitivity_high)]
 
     if not ax:
         ax = plt.gca()
     ax.errorbar(
-        bin_center.value, sensitivity.value, xerr=xerr, yerr=yerr, linestyle='', ecolor=color, **kwargs
+        bin_center.to_value('TeV'), sensitivity, xerr=xerr, yerr=yerr, linestyle='', ecolor=color, **kwargs
     )
     return ax

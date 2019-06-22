@@ -9,7 +9,7 @@ from colorama import Fore
 
 from tqdm import tqdm
 
-from cta_plots import load_signal_events, load_energy_bias_function, load_background_events
+from cta_plots import load_signal_events, load_background_events
 
 from cta_plots.binning import make_default_cta_binning
 from cta_plots.sensitivity.plotting import plot_crab_flux, plot_reference, plot_requirement, plot_sensitivity
@@ -24,13 +24,13 @@ crab = CrabSpectrum()
 def calc_relative_sensitivity(gammas, background, bin_edges, alpha=0.2, n_jobs=4):
     results = []
 
-    # theta_cuts = np.arange(0.01, 0.38, 0.01)
-    # prediction_cuts = np.arange(0.1, 1, 0.025)
-    # multiplicities = [2, 3, 4, 5, 6, 7, 8, 9, 10]
-
-    theta_cuts = np.arange(0.01, 0.40, 0.01)
-    prediction_cuts = np.arange(0.0, 1, 0.025)
+    theta_cuts = np.arange(0.01, 0.6, 0.025)
+    prediction_cuts = np.arange(0.3, 1, 0.05)
     multiplicities = np.arange(2, 10)
+
+    # theta_cuts = np.arange(0.01, 0.40, 0.05)
+    # prediction_cuts = np.arange(0.4, 1, 0.025)
+    # multiplicities = [4]
 
     groups = pd.cut(gammas.gamma_energy_prediction_mean, bins=bin_edges)
     g = gammas.groupby(groups)
@@ -92,26 +92,26 @@ def calc_relative_sensitivity(gammas, background, bin_edges, alpha=0.2, n_jobs=4
 @click.argument('gammas_path', type=click.Path(exists=True))
 @click.argument('protons_path', type=click.Path(exists=True))
 @click.argument('electrons_path', type=click.Path(exists=True))
-@click.option('-e', '--energy_bias_path', type=click.Path(exists=True))
 @click.option('-o', '--output', type=click.Path(exists=False))
 @click.option('-m', '--multiplicity', default=2)
 @click.option('-t', '--t_obs', default=50)
-@click.option('-c', '--color', default='xkcd:green')
+@click.option('-c', '--color', default='xkcd:purple')
 @click.option('--n_jobs', default=4)
 @click.option('--reference/--no-reference', default=False)
+@click.option('--correct_bias/--no-correct_bias', default=True)
 @click.option('--requirement/--no-requirement', default=False)
 @click.option('--flux/--no-flux', default=True)
 def main(
     gammas_path,
     protons_path,
     electrons_path,
-    energy_bias_path,
     output,
     multiplicity,
     t_obs,
     color,
     n_jobs,
     reference,
+    correct_bias,
     requirement,
     flux,
 ):
@@ -122,20 +122,29 @@ def main(
         protons_path, electrons_path, source_alt, source_az, assumed_obs_time=t_obs
     )
 
-    if energy_bias_path:
-        energy_bias = load_energy_bias_function(energy_bias_path, sigma=1)
+    e_min, e_max = 0.02 * u.TeV, 200 * u.TeV
+    bin_edges, bin_center, _ = make_default_cta_binning(e_min=e_min, e_max=e_max)
+
+    if correct_bias:
+        from scipy.stats import binned_statistic
+        from cta_plots import create_interpolated_function
+
         e_reco = gammas.gamma_energy_prediction_mean
-        e_corrected = e_reco * (-energy_bias(e_reco) + 1)
+        e_true = gammas.mc_energy
+        resolution = (e_reco - e_true) / e_true
+
+        median, _, _ = binned_statistic(e_reco, resolution, statistic=np.nanmedian, bins=bin_edges)
+        energy_bias = create_interpolated_function(bin_center, median, sigma=8)
+
+        e_corrected = e_reco / (energy_bias(e_reco) + 1)
         gammas.gamma_energy_prediction_mean = e_corrected
 
         e_reco = background.gamma_energy_prediction_mean
-        e_corrected = e_reco * (-energy_bias(e_reco) + 1)
+        e_corrected = e_reco / (energy_bias(e_reco) + 1)
         background.gamma_energy_prediction_mean = e_corrected
+        
     else:
         print(Fore.YELLOW + 'Not correcting for energy bias' + Fore.RESET)
-
-    e_min, e_max = 0.02 * u.TeV, 200 * u.TeV
-    bin_edges, bin_center, _ = make_default_cta_binning(e_min=e_min, e_max=e_max)
 
     df_sensitivity = calc_relative_sensitivity(gammas, background, bin_edges, alpha=0.2, n_jobs=n_jobs)
     print(df_sensitivity)
@@ -152,11 +161,13 @@ def main(
     ax.set_xscale('log')
     ax.set_yscale('log')
     ax.set_xlim([1e-2, 10 ** (2.5)])
-    ax.set_ylabel(r'$ E^2 \cdot \quad \mathrm{erg} /( \mathrm{s} \quad  \mathrm{cm}^2$)')
-    ax.set_xlabel(r'$E_{Reco} /  \mathrm{TeV}$')
-    ax.legend()
-    plt.title('Point source sensitivity (Prod3b, HB9, Paranal) in ' + str(t_obs.to('h')))
 
+    ylabel = '$\\text{E}^2 \\frac{\\text{dN}}{\\text{dE}}$ / \si{erg\per\square\centi\meter \per\second}'
+    ax.set_ylabel(ylabel)
+    ax.set_xlabel(r'Estimated Energy / TeV')
+    ax.legend()
+    # plt.title('Point source sensitivity (Prod3b, HB9, Paranal) in ' + str(t_obs.to('h')))
+    plt.tight_layout(pad=0, rect=(0, 0, 1, 1))
     if output:
         n, _ = os.path.splitext(output)
         print(f"writing csv to {n + '.csv'}")
@@ -164,6 +175,7 @@ def main(
         plt.savefig(output)
     else:
         plt.show()
+
 
 
 if __name__ == '__main__':

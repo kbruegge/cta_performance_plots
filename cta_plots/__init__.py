@@ -58,27 +58,6 @@ def create_interpolated_function(energies, values, sigma=1):
     return f
 
 
-def load_energy_bias_function(energy_bias_path, sigma=1):
-    ''' 
-    Creates a the energy bias function 
-    f(e_reco) = (e_reco - e_true)/e_reco
-    from the data given by the path to the csv file contianing the bias table.
-    Parameters
-    ----------
-    energy_bias_path : str
-        path to csv file created by the energy_bias script.
-    sigma : int, optional
-        amount of smoothing to perform
-    
-    Returns
-    -------
-    function
-        function of e_reco returning the bias
-    '''
-
-    df = pd.read_csv(energy_bias_path)
-    f = create_interpolated_function(df.energy_prediction, df['bias'], sigma=sigma)
-    return f
 
 
 def apply_cuts(df, cuts_path, sigma=1, theta_cuts=True, prediction_cuts=True, multiplicity_cuts=True):
@@ -122,8 +101,8 @@ DEFAULT_COLUMNS = [
 
 
 def load_signal_events(gammas_path, assumed_obs_time=30 * u.min, columns=DEFAULT_COLUMNS, calculate_weights=True):
-    crab_spectrum = spectrum.CrabSpectrum()
-    # crab_spectrum = spectrum.CrabLogParabola()
+    # crab_spectrum = spectrum.CrabSpectrum()
+    crab_spectrum = spectrum.CrabLogParabola()
 
     gamma_runs = read_data(gammas_path, key='runs')
 
@@ -161,6 +140,7 @@ def load_signal_events(gammas_path, assumed_obs_time=30 * u.min, columns=DEFAULT
 
 
 def load_background_events(protons_path, electrons_path, source_alt, source_az, assumed_obs_time=50 * u.h, columns=DEFAULT_COLUMNS):
+    # cosmic_ray_spectrum = spectrum.CosmicRaySpectrumPDG()
     cosmic_ray_spectrum = spectrum.CosmicRaySpectrum()
     electron_spectrum = spectrum.CTAElectronSpectrum()
 
