@@ -58,8 +58,6 @@ def find_best_cuts(
         A dataframe containing energies and weights for the background (protons + electrons)
     alpha : float, optional
         assumed ratio between signal and background region
-    silent : bool, optional
-        whether to create a bunch of progressbars
 
     Returns
     -------

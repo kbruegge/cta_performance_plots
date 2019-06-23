@@ -5,6 +5,7 @@ import click
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+pd.set_option('display.max_columns', 500)
 from colorama import Fore
 
 from tqdm import tqdm
@@ -24,13 +25,12 @@ crab = CrabSpectrum()
 def calc_relative_sensitivity(gammas, background, bin_edges, alpha=0.2, n_jobs=4):
     results = []
 
-    theta_cuts = np.arange(0.025, 0.6, 0.025)
-    prediction_cuts = np.arange(0.1, 1, 0.05)
-    print(prediction_cuts)
+    theta_cuts = np.arange(0.01, 0.17, 0.01)
+    prediction_cuts = np.arange(0.0, 1, 0.05)
     multiplicities = np.arange(2, 10)
 
-    # theta_cuts = np.arange(0.01, 0.40, 0.05)
-    # prediction_cuts = np.arange(0.4, 1, 0.025)
+    # theta_cuts = np.arange(0.01, 0.40, 0.1)
+    # prediction_cuts = np.arange(0.4, 1, 0.1)
     # multiplicities = [4]
 
     groups = pd.cut(gammas.gamma_energy_prediction_mean, bins=bin_edges)
@@ -162,12 +162,26 @@ def main(
     ax.set_xscale('log')
     ax.set_yscale('log')
     ax.set_xlim([1e-2, 10 ** (2.5)])
+    ax.set_ylim([4.5e-14, 3E-10])
 
-    ylabel = '$\\text{E}^2 \\frac{\\text{dN}}{\\text{dE}}$ / \si{erg\per\square\centi\meter \per\second}'
+    ylabel = '$\\text{E}^2 \\frac{\\text{dN}}{\\text{dE}} / \\text{erg}\;\\text{cm}^{-2}\\text{s}^{-1}$'
     ax.set_ylabel(ylabel)
     ax.set_xlabel(r'Estimated Energy / TeV')
-    ax.legend()
-    # plt.title('Point source sensitivity (Prod3b, HB9, Paranal) in ' + str(t_obs.to('h')))
+    
+    # fix legend handles. The handle for the reference is different form a line2d handle. this makes it consostent.
+    from matplotlib.lines import Line2D
+    handles = ax.get_legend_handles_labels()[0]
+    labels = ax.get_legend_handles_labels()[1]
+    handles[2] = Line2D([0], [0], color=handles[2].lines[0].get_color())  
+    legend = ax.legend(handles, labels, framealpha=0, borderaxespad=0.025)
+
+    # add meta information to legend title
+    legend.set_title('CTA Prod3B (Paranal HB9)')
+    legend._legend_box.align = "left"
+    legend.get_title().set_alpha(0.5)
+    # legend.get_title().set_linespacing(1.1)
+
+
     plt.tight_layout(pad=0, rect=(0, 0, 1, 1))
     if output:
         n, _ = os.path.splitext(output)

@@ -6,20 +6,39 @@ from . import load_sensitivity_reference, load_sensitivity_requirement
 from cta_plots.spectrum import CrabLogParabola, CrabSpectrum
 
 
-def plot_crab_flux(bin_edges, ax=None, curved=True):
+def plot_crab_flux(bin_edges, ax=None, curved=True, show_text=True):
     if curved:
         crab = CrabLogParabola()
     else:
         crab = CrabSpectrum()
     if not ax:
         ax = plt.gca()
-    e = np.logspace(-2, 2, 300)  * u.TeV
+    e = np.logspace(-3, 3, 300) * u.TeV
     flux = (crab.flux(e) * e ** 2).to_value(
         u.erg / (u.s * u.cm ** 2)
     )
     ax.plot(
-        e, flux, ls='-', color='#a3a3a3', label='Crab Flux', lw=0.7,
+        e, flux, ls='--', color='#a3a3a3', label='Crab Flux', lw=0.7, alpha=0.9
     )
+    ax.plot(
+        e, 0.1 * flux, ls='--', color='#a3a3a3', lw=0.7, alpha=0.75
+    )
+    ax.plot(
+        e, 0.01 * flux, ls='--', color='#a3a3a3', lw=0.7, alpha=0.6
+    )
+
+    if show_text:
+        y = 1.2 * flux[len(flux) // 2] 
+        x = 1
+        ax.text(x, y, '100 \\% Crab', color='gray', alpha=0.7, rotation=-20, size=5, ha='center', va='center')
+
+        y = 0.12 * flux[len(flux) // 2] 
+        x = 1
+        ax.text(x, y, '10 \\% Crab', color='gray', alpha=0.6, rotation=-20, size=5, ha='center', va='center')
+
+        y = 0.012 * flux[len(flux) // 2]
+        x = 1
+        ax.text(x, y, '1 \\% Crab', color='gray', alpha=0.5, rotation=-20, size=5, ha='center', va='center')
     return ax
 
 
@@ -27,7 +46,7 @@ def plot_requirement(ax=None):
     df = load_sensitivity_requirement()
     if not ax:
         ax = plt.gca()
-    ax.plot(df.energy, df.sensitivity, color='#888888', lw=1.2, label='Requirement Offline')
+    ax.plot(df.energy, df.sensitivity, color='#888888', lw=1.2, label='CTA Requirement', alpha=0.8)
     # ax.plot(df.energy, df.sensitivity * 3, color='#bebebe', lw=0.5, label='Requirement Real Time')
     return ax
 
@@ -66,6 +85,6 @@ def plot_sensitivity(rs, bin_edges, bin_center, color='blue', ax=None, **kwargs)
     if not ax:
         ax = plt.gca()
     ax.errorbar(
-        bin_center.to_value('TeV'), sensitivity, xerr=xerr, yerr=yerr, linestyle='', ecolor=color, **kwargs
+        bin_center.to_value('TeV'), sensitivity, xerr=xerr, yerr=yerr, linestyle='', ecolor=color, zorder=20, **kwargs
     )
     return ax
