@@ -11,7 +11,7 @@ from cta_plots.colors import default_cmap, main_color, main_color_complement
 from .. import add_colorbar_to_figure
 
 
-def plot_resolution(e_true, e_reco, color='#5f218c', reference=False, relative=False, plot_e_reco=False, ax=None):
+def plot_resolution(e_true, e_reco, color='#5f218c', reference=False, relative=False, plot_e_reco=False, plot_bias=False, ax=None):
 
     if not ax:
         fig, ax = plt.subplots(1, 1)
@@ -31,7 +31,7 @@ def plot_resolution(e_true, e_reco, color='#5f218c', reference=False, relative=F
         iqr, _, _ = binned_statistic(e_x, resolution, statistic=lambda y: np.nanpercentile(np.abs(y), 68), bins=bins)
 
     median, _, _ = binned_statistic(e_x, resolution, statistic=np.nanmedian, bins=bins)
-
+    # from IPython import embed; embed()
     max_y = 1.
     min_y = -0.5 if relative else 0
     bins_y = np.linspace(min_y, max_y, 40)
@@ -45,15 +45,18 @@ def plot_resolution(e_true, e_reco, color='#5f218c', reference=False, relative=F
     add_colorbar_to_figure(im, fig, ax, label='Counts')
 
     ax.hlines(iqr, bins[:-1], bins[1:], lw=2, color=color, label='Resolution')
-    ax.hlines(median, bins[:-1], bins[1:], lw=1, color=color, label='Bias', alpha=0.8)
+    
+    if plot_bias:
+        ax.hlines(median, bins[:-1], bins[1:], lw=1, color=color, label='Bias', alpha=0.8)
 
     if reference:
         df = load_energy_resolution_reference()
-        ax.plot(df.energy, df.resolution, '--', color='#5b5b5b', label='Prod3B Reference')
+        ax.plot(df.energy, df.resolution, '--', color='#5b5b5b', label='Reference')
 
     ax.set_xscale('log')
 
-    ax.set_ylabel('$\\frac{E_\\text{Est}}{E_\\text{T}} - 1$')
+    # ax.set_ylabel('$\\frac{E_\\text{Est}}{E_\\text{T}} - 1$')
+    ax.set_ylabel('$E_\\text{Est} / E_\\text{T}  -  1$')
     if plot_e_reco:
         ax.set_xlabel('Estimated Energy / TeV')
     else:
@@ -69,7 +72,7 @@ def plot_resolution(e_true, e_reco, color='#5f218c', reference=False, relative=F
         'median': median,
         'bias': median,
     })
-    plt.tight_layout(pad=0, rect=(0, 0, 1.002, 1))
+    plt.tight_layout(pad=0, rect=(-0.02, 0, 1.002, 1))
     return ax, df
 
 

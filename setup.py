@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='cta_plots',
-    version='0.0.2',
+    version='0.0.3',
     description='A collection of plotting scrtipts for CTA',
     url='https://github.com/mackaiver/cta_performance_plots',
     author='Kai Brügge',
@@ -38,7 +38,8 @@ setup(
             'cta_plot_sensitivity = cta_plots.sensitivity.sensitivity:main',
             'cta_plot_theta_square = cta_plots.sensitivity.theta_squared:main',
             'cta_plot_theta_square_grid = cta_plots.sensitivity.theta_square_grid:main',
-            'cta_plot_ml = cta_plots.ml.ml_cli:cli',
+            'cta_plot_importance = cta_plots.ml.importances:main',
+            'cta_plot_classifier = cta_plots.ml.classifier_cli:cli',
             'cta_plot_reco = cta_plots.reconstruction.reco_cli:cli',
             'cta_plot_irf = cta_plots.irf.irf_cli:cli',
         ],

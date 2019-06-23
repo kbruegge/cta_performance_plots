@@ -3,6 +3,7 @@ import pandas as pd
 from sklearn.externals import joblib
 import seaborn as sns
 import matplotlib.pyplot as plt
+import click
 
 
 def plot_importances(model_path, color, ax=None):
@@ -49,3 +50,24 @@ def plot_importances(model_path, color, ax=None):
     ax.get_yaxis().set_tick_params(pad=70)
 
     return ax
+
+
+
+@click.command()
+@click.argument("model", type=click.Path())
+@click.option("-c", "--color", default="crimson")
+@click.option("-o", "--output")
+def main(model, color, output):
+    fig = plt.gcf()
+    size = list(fig.get_size_inches())
+    # print(size)
+    size[1] += 1.5
+    fig, ax = plt.subplots(1, 1, figsize=(size))
+    size = list(fig.get_size_inches())
+    # print(size)
+    ax = plot_importances(model, color=color, ax=ax)
+    plt.tight_layout(pad=0, rect=(-0.0135, 0, 1.006, 1))
+    if output:
+        plt.savefig(output)
+    else:
+        plt.show()

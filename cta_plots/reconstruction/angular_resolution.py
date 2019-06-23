@@ -54,7 +54,7 @@ def plot_angular_resolution(reconstructed_events, reference, plot_e_reco, ylog=F
 
     if reference:
         df = load_angular_resolution_requirement()
-        ax.plot(df.energy, df.resolution, '--', color='#5b5b5b', label='Prod3B Reference')
+        ax.plot(df.energy, df.resolution, '--', color='#5b5b5b', label='Reference')
 
     ax.set_xscale('log')
 

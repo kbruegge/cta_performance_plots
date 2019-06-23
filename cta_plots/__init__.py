@@ -19,7 +19,7 @@ ELECTRON_TYPE = 1
 PROTON_TYPE = 0
 
 
-def load_data_description(path, data):
+def load_data_description(path, data, cuts_path=None):
     particle_dict = {0: 'Gamma', 1: 'Electron', 101: 'Proton'}
     num_array_events = len(data)
 
@@ -35,10 +35,18 @@ def load_data_description(path, data):
         particle_type = particle_dict[group['mc_shower_primary_id'][0]]
         
     s = f'{particle_type}'
-    if diffuse:
-        s += ' Diffuse'
+    if particle_type == 'Gamma':
+        if diffuse:
+            s += ' Diffuse'
+        else:
+            s += ' Point-Like'
     s += '\n'
-    s += f'\\num{{{num_array_events}}} Events'
+    s += f'\\num{{{num_array_events}}}'
+    if cuts_path:
+        s += ' (Optimized Cuts)'
+    else:
+        s += ' (No Cuts)'
+    # s += '\n'
     return s
 
 
@@ -72,7 +80,7 @@ def apply_cuts(df, cuts_path, sigma=1, theta_cuts=True, prediction_cuts=True, mu
         df['theta'] = (calculate_distance_to_point_source(df, source_alt=source_alt, source_az=source_az).to_value(u.deg))
 
         f_theta = create_interpolated_function(bin_center, cuts.theta_cut, sigma=sigma)
-        m &= df.theta < f_theta(df.gamma_energy_prediction_mean)
+        m &= df.theta < f_theta(df.theta)
 
     if prediction_cuts: 
         f_prediction = create_interpolated_function(bin_center, cuts.prediction_cut)

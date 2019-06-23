@@ -20,3 +20,11 @@ def load_angular_resolution_requirement(site='paranal'):
     )
     return df
 
+
+def load_energy_resolution_reference():
+    path = 'ascii/CTA-Performance-prod3b-v1-South-20deg-50h-Eres.txt'
+    r = resource_string('cta_plots.resources', path)
+    df = pd.read_csv(
+        BytesIO(r), delimiter='\t\t', skiprows=9, names=['energy', 'resolution'], engine='python'
+    )
+    return df
