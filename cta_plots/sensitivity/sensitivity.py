@@ -25,8 +25,8 @@ crab = CrabSpectrum()
 def calc_relative_sensitivity(gammas, background, bin_edges, alpha=0.2, n_jobs=4):
     results = []
 
-    theta_cuts = np.arange(0.01, 0.17, 0.01)
-    prediction_cuts = np.arange(0.0, 1, 0.05)
+    theta_cuts = np.arange(0.01, 0.18, 0.01)
+    prediction_cuts = np.arange(0.0, 1.05, 0.05)
     multiplicities = np.arange(2, 10)
 
     # theta_cuts = np.arange(0.01, 0.40, 0.1)
@@ -98,6 +98,7 @@ def calc_relative_sensitivity(gammas, background, bin_edges, alpha=0.2, n_jobs=4
 @click.option('-t', '--t_obs', default=50)
 @click.option('-c', '--color', default='xkcd:purple')
 @click.option('--n_jobs', default=4)
+@click.option('--landscape/--no-landscape', default=False)
 @click.option('--reference/--no-reference', default=False)
 @click.option('--correct_bias/--no-correct_bias', default=True)
 @click.option('--requirement/--no-requirement', default=False)
@@ -111,6 +112,7 @@ def main(
     t_obs,
     color,
     n_jobs,
+    landscape,
     reference,
     correct_bias,
     requirement,
@@ -150,6 +152,10 @@ def main(
     df_sensitivity = calc_relative_sensitivity(gammas, background, bin_edges, alpha=0.2, n_jobs=n_jobs)
     print(df_sensitivity)
 
+    if landscape:
+        size = plt.gcf().get_size_inches()
+        plt.figure(figsize=(8.24, size[0]*0.9))
+    
     ax = plot_sensitivity(df_sensitivity, bin_edges, bin_center, color=color)
 
     if reference:
@@ -162,7 +168,7 @@ def main(
     ax.set_xscale('log')
     ax.set_yscale('log')
     ax.set_xlim([1e-2, 10 ** (2.5)])
-    ax.set_ylim([4.5e-14, 3E-10])
+    ax.set_ylim([4e-14, 3E-10])
 
     ylabel = '$\\text{E}^2 \\frac{\\text{dN}}{\\text{dE}} / \\text{erg}\;\\text{cm}^{-2}\\text{s}^{-1}$'
     ax.set_ylabel(ylabel)

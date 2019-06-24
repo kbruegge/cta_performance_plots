@@ -43,9 +43,15 @@ def plot_crab_flux(bin_edges, ax=None, curved=True, show_text=True):
 
 
 def plot_requirement(ax=None):
+    from scipy.interpolate import interp1d
+    
     df = load_sensitivity_requirement()
     if not ax:
         ax = plt.gca()
+    # f = interp1d(df.energy, df.sensitivity, kind='quadratic')
+    # min_e, max_e = df.energy.min(), df.energy.max()
+    # x = np.logspace(np.log10(min_e), np.log10(max_e), 300)
+    # ax.plot(x, f(x), color='#888888', lw=1.2, label='CTA Requirement', alpha=0.8)
     ax.plot(df.energy, df.sensitivity, color='#888888', lw=1.2, label='CTA Requirement', alpha=0.8)
     # ax.plot(df.energy, df.sensitivity * 3, color='#bebebe', lw=0.5, label='Requirement Real Time')
     return ax
