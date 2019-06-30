@@ -56,8 +56,9 @@ def plot_importances(model_path, color, ax=None):
 @click.command()
 @click.argument("model", type=click.Path())
 @click.option("-c", "--color", default="crimson")
+@click.option("--xlim", default=None, nargs=2, type=float)
 @click.option("-o", "--output")
-def main(model, color, output):
+def main(model, color, xlim, output):
     fig = plt.gcf()
     size = list(fig.get_size_inches())
     # print(size)
@@ -67,6 +68,8 @@ def main(model, color, output):
     # print(size)
     ax = plot_importances(model, color=color, ax=ax)
     plt.tight_layout(pad=0, rect=(-0.0135, 0, 1.006, 1))
+    if xlim:
+        plt.xlim(xlim)
     if output:
         plt.savefig(output)
     else:
