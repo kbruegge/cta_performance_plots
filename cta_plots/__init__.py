@@ -83,7 +83,7 @@ def apply_cuts(df, cuts_path, sigma=1, theta_cuts=True, prediction_cuts=True, mu
         m &= df.theta < f_theta(df.theta)
 
     if prediction_cuts: 
-        f_prediction = create_interpolated_function(bin_center, cuts.prediction_cut)
+        f_prediction = create_interpolated_function(bin_center, cuts.prediction_cut, sigma=0)
         m &= df.gamma_prediction_mean >= f_prediction(df.gamma_energy_prediction_mean)
 
     if multiplicity_cuts:
@@ -151,7 +151,7 @@ def load_signal_events(gammas_path, assumed_obs_time=30 * u.min, columns=DEFAULT
     return gammas, source_alt, source_az
 
 
-def load_background_events(protons_path, electrons_path, source_alt, source_az, assumed_obs_time=50 * u.h, columns=DEFAULT_COLUMNS):
+def load_background_events(protons_path, electrons_path, source_alt, source_az, assumed_obs_time=50 * u.h, columns=DEFAULT_COLUMNS, return_rate=False):
     # cosmic_ray_spectrum = spectrum.CosmicRaySpectrumPDG()
     cosmic_ray_spectrum = spectrum.CosmicRaySpectrum()
     electron_spectrum = spectrum.CTAElectronSpectrum()
@@ -185,7 +185,12 @@ def load_background_events(protons_path, electrons_path, source_alt, source_az, 
     electrons['type'] = ELECTRON_TYPE
     
     background = pd.concat([protons, electrons], sort=False)
-    return background
+    if return_rate:
+        event_rate = background['weight'].sum() / assumed_obs_time.to(u.s)
+        # print(f'Background event rate :{event_rate}')
+        return background, event_rate
+    else:
+        return background
 
 
 def add_colorbar_to_figure(im, fig, ax, label=None):

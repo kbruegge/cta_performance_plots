@@ -31,7 +31,7 @@ def plot_resolution(e_true, e_reco, color='#5f218c', reference=False, relative=F
         iqr, _, _ = binned_statistic(e_x, resolution, statistic=lambda y: np.nanpercentile(np.abs(y), 68), bins=bins)
 
     median, _, _ = binned_statistic(e_x, resolution, statistic=np.nanmedian, bins=bins)
-    # from IPython import embed; embed()
+
     max_y = 1.
     min_y = -0.5 if relative else 0
     bins_y = np.linspace(min_y, max_y, 40)
@@ -55,7 +55,7 @@ def plot_resolution(e_true, e_reco, color='#5f218c', reference=False, relative=F
 
     ax.set_xscale('log')
 
-    # ax.set_ylabel('$\\frac{E_\\text{Est}}{E_\\text{T}} - 1$')
+
     ax.set_ylabel('$E_\\text{Est} / E_\\text{T}  -  1$')
     if plot_e_reco:
         ax.set_xlabel('Estimated Energy / TeV')

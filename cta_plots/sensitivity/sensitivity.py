@@ -17,21 +17,24 @@ from cta_plots.sensitivity.plotting import plot_crab_flux, plot_reference, plot_
 from cta_plots.sensitivity import calculate_n_off, calculate_n_signal
 from cta_plots.sensitivity.optimize import find_best_cuts
 from cta_plots.spectrum import CrabSpectrum
-from cta_plots.sensitivity import find_relative_sensitivity_poisson
+from cta_plots.sensitivity import find_relative_sensitivity_poisson, check_validity
+
+from scipy.ndimage import gaussian_filter1d
 
 crab = CrabSpectrum()
 
 
-def calc_relative_sensitivity(gammas, background, bin_edges, alpha=0.2, n_jobs=4):
+def optimize_event_selection(gammas, background, bin_edges, alpha=0.2, n_jobs=4):
     results = []
 
-    theta_cuts = np.arange(0.01, 0.18, 0.01)
-    prediction_cuts = np.arange(0.0, 1.05, 0.05)
-    multiplicities = np.arange(2, 10)
+    # theta_cuts = np.arange(0.01, 0.18, 0.01)
+    # prediction_cuts = np.arange(0.0, 1.05, 0.05)
+    # multiplicities = np.arange(2, 10)
 
-    # theta_cuts = np.arange(0.01, 0.40, 0.1)
-    # prediction_cuts = np.arange(0.4, 1, 0.1)
-    # multiplicities = [4]
+
+    theta_cuts = np.arange(0.02, 0.20, 0.01)
+    prediction_cuts = np.arange(0.0, 1.05, 0.1)
+    multiplicities = np.arange(2, 8)
 
     groups = pd.cut(gammas.gamma_energy_prediction_mean, bins=bin_edges)
     g = gammas.groupby(groups)
@@ -43,12 +46,49 @@ def calc_relative_sensitivity(gammas, background, bin_edges, alpha=0.2, n_jobs=4
         best_sensitivity, best_prediction_cut, best_theta_cut, best_significance, best_mult = find_best_cuts(
             theta_cuts, prediction_cuts, multiplicities, signal_in_range, background_in_range, alpha=alpha, n_jobs=n_jobs
         )
+
+        d = {
+            'prediction_cut': best_prediction_cut,
+            'significance': best_significance,
+            'theta_cut': best_theta_cut,
+            'multiplicity': best_mult,
+        }
+        results.append(d)
+
+    results_df = pd.DataFrame(results)
+    results_df['e_min'] = bin_edges[:-1]
+    results_df['e_max'] = bin_edges[1:]
+    return results_df
+
+
+def calc_relative_sensitivity(gammas, background, cuts, alpha, sigma=0):
+    bin_edges = list(cuts['e_min']) + [cuts['e_max'].iloc[-1]]
+
+    results = []
+
+    if sigma > 0:
+        cuts.prediction_cut = gaussian_filter1d(cuts.prediction_cut, sigma=sigma)
+        cuts.theta_cut = gaussian_filter1d(cuts.theta_cut, sigma=sigma)
+        cuts.multiplicity = gaussian_filter1d(cuts.multiplicity, sigma=sigma)
+
+    groups = pd.cut(gammas.gamma_energy_prediction_mean, bins=bin_edges)
+    g = gammas.groupby(groups)
+
+    groups = pd.cut(background.gamma_energy_prediction_mean, bins=bin_edges)
+    b = background.groupby(groups)
+
+    for (_, signal_in_range), (_, background_in_range), (_, r) in tqdm(zip(g, b, cuts.iterrows()), total=len(bin_edges) - 1):
+        best_mult = r.multiplicity
+        best_prediction_cut = r.prediction_cut
+        best_theta_cut = r.theta_cut
+        best_significance = r.significance
+
         gammas_gammalike = signal_in_range[
             (signal_in_range.gamma_prediction_mean >= best_prediction_cut)
             &
             (signal_in_range.num_triggered_telescopes >= best_mult)
         ]
-        
+
         background_gammalike = background_in_range[
             (background_in_range.gamma_prediction_mean >= best_prediction_cut)
             &
@@ -60,13 +100,15 @@ def calc_relative_sensitivity(gammas, background, bin_edges, alpha=0.2, n_jobs=4
         n_off, n_off_counts, total_bkg_counts = calculate_n_off(
             background_gammalike, best_theta_cut, alpha=alpha
         )
-        
-        if not np.isnan(best_sensitivity):
-            rs = find_relative_sensitivity_poisson(n_signal, n_off, n_signal_counts, n_off_counts, alpha=alpha)
-            m, l, h = rs
-        else:
-            m, l, h = np.nan, np.nan, np.nan
 
+        print('----------------')
+        valid = check_validity(n_signal_counts, n_off_counts, total_bkg_counts, alpha=alpha, silent=False)
+        print('----------------')
+        valid &= check_validity(n_signal, n_off, total_bkg_counts, alpha=alpha, silent=False)
+        print('----------------')
+        rs = find_relative_sensitivity_poisson(n_signal, n_off, n_signal_counts, n_off_counts, alpha=alpha)
+        m, l, h = rs
+        
         d = {
             'sensitivity': m,
             'sensitivity_low': l,
@@ -80,6 +122,7 @@ def calc_relative_sensitivity(gammas, background, bin_edges, alpha=0.2, n_jobs=4
             'theta_cut': best_theta_cut,
             'multiplicity': best_mult,
             'total_bkg_counts': total_bkg_counts,
+            'valid': valid,
         }
         results.append(d)
 
@@ -137,7 +180,7 @@ def main(
         resolution = (e_reco - e_true) / e_true
 
         median, _, _ = binned_statistic(e_reco, resolution, statistic=np.nanmedian, bins=bin_edges)
-        energy_bias = create_interpolated_function(bin_center, median, sigma=8)
+        energy_bias = create_interpolated_function(bin_center, median, sigma=0.5)
 
         e_corrected = e_reco / (energy_bias(e_reco) + 1)
         gammas.gamma_energy_prediction_mean = e_corrected
@@ -149,14 +192,15 @@ def main(
     else:
         print(Fore.YELLOW + 'Not correcting for energy bias' + Fore.RESET)
 
-    df_sensitivity = calc_relative_sensitivity(gammas, background, bin_edges, alpha=0.2, n_jobs=n_jobs)
-    print(df_sensitivity)
+    df_cuts = optimize_event_selection(gammas, background, bin_edges, alpha=0.2, n_jobs=n_jobs)
+    df_sensitivity = calc_relative_sensitivity(gammas, background, df_cuts, alpha=0.2, sigma=0.5)
 
+    print(df_sensitivity)
     if landscape:
         size = plt.gcf().get_size_inches()
         plt.figure(figsize=(8.24, size[0]*0.9))
     
-    ax = plot_sensitivity(df_sensitivity, bin_edges, bin_center, color=color)
+    ax = plot_sensitivity(df_sensitivity, bin_edges, bin_center, color=color, lw=2)
 
     if reference:
         plot_reference(ax)

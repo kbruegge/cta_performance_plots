@@ -44,20 +44,25 @@ def load_sensitivity_requirement():
 
 
 
-def check_validity(n_signal, n_off, total_bkg_counts, alpha=0.2):
+def check_validity(n_signal, n_off, total_bkg_counts, alpha=0.2, silent=True):
     n_on = n_signal + alpha * n_off
 
 
-    enough_bkg_counts = total_bkg_counts >= 20
-
+    enough_bkg_counts = total_bkg_counts >= 50  # unweighted background counts
+    # if not silent:
+    # enough_bkg_counts = enough_bkg_counts & (n_off >= 1)
     enough_signal_counts = n_signal >= 10
-
-    # must be higher than 5 times the assumed bkg systematic uncertainty of 1 percent. (See aswg irf report)
     # https://forge.in2p3.fr/projects/cta_analysis-and-simulations/repository/changes/DOC/InternalReports/IRFReports/released/v1.1/cta-aswg-IRFreport.pdf
     systematic = n_signal > (n_off * 0.05 / alpha)
+    # must be higher than 5 times the assumed bkg systematic uncertainty of 1 percent. (See ASWG irf report)
 
     required_excess = n_on > (alpha * n_off + 10)
-
+    if not silent:
+        print(f'bkg: {enough_bkg_counts}')
+        # print(f'bkg: {enough_bkg_counts}')
+        print(f'signal: {enough_signal_counts}')
+        print(f'sys: {systematic}')
+        print(f'excess: {required_excess}')
     return enough_bkg_counts & enough_signal_counts & systematic & required_excess
 
 

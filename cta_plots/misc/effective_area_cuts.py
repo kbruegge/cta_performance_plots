@@ -36,7 +36,7 @@ def main(input_file, output, n_bins, cuts_path,  reference):
     gammas, _, _ = load_signal_events(input_file, columns=cols)
 
     if cuts_path:
-        gammas = apply_cuts(gammas, cuts_path, theta_cuts=True)
+        gammas = apply_cuts(gammas, cuts_path, theta_cuts=True, sigma=0)
 
     runs = read_data(input_file, key='runs')
     mc_production = MCSpectrum.from_cta_runs(runs)

@@ -15,10 +15,10 @@ from cta_plots.colors import color_cycle
 from cta_plots import load_signal_events, apply_cuts, load_runs, load_data_description, create_interpolated_function
 
 
-def prediction_function(cuts_path):
+def prediction_function(cuts_path, sigma=0):
     cuts = pd.read_csv(cuts_path)
     bin_center = np.sqrt(cuts.e_min * cuts.e_max)
-    return create_interpolated_function(bin_center, cuts.prediction_cut)
+    return create_interpolated_function(bin_center, cuts.prediction_cut, sigma=sigma)
 
 
 @click.command()
@@ -32,7 +32,9 @@ def main(input_file, output, cuts_path, reference):
 
     gammas, _, _ = load_signal_events(input_file, calculate_weights=False, )
     gammas.dropna(inplace=True)
-    gammas = apply_cuts(gammas, cuts_path=cuts_path, theta_cuts=True)
+
+    sigma = 1
+    gammas = apply_cuts(gammas, cuts_path=cuts_path, theta_cuts=True, sigma=sigma)
 
     runs = load_runs(input_file)
     mc_production = MCSpectrum.from_cta_runs(runs)
@@ -62,7 +64,7 @@ def main(input_file, output, cuts_path, reference):
     mask = area > 0
     color = None
     if cuts_path:
-        f_prediction = prediction_function(cuts_path)
+        f_prediction = prediction_function(cuts_path, sigma=0)
         magma = cm.get_cmap('magma', 512)
         color = magma(f_prediction(bin_center.value[mask]))
 

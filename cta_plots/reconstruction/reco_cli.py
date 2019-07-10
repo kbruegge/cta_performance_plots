@@ -92,7 +92,7 @@ def _load_data(path, cuts_path=None, dropna=True):
     if dropna:
         df.dropna(inplace=True)
     if cuts_path:
-        df = apply_cuts(df, cuts_path, theta_cuts=False)
+        df = apply_cuts(df, cuts_path, theta_cuts=False, sigma=0)
     return df
 
 

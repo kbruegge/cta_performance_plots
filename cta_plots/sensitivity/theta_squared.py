@@ -2,6 +2,7 @@ import click
 import numpy as np
 import matplotlib.pyplot as plt
 import astropy.units as u
+import os
 
 import matplotlib.offsetbox as offsetbox
 from cta_plots import load_signal_events, load_background_events, ELECTRON_TYPE
@@ -19,18 +20,18 @@ def main(gammas_path, protons_path, electrons_path, output, n_jobs):
     t_obs = 1 * u.min
 
     gammas, source_alt, source_az = load_signal_events(gammas_path, assumed_obs_time=t_obs)
-    background = load_background_events(protons_path, electrons_path, source_alt, source_az, assumed_obs_time=t_obs,)
+    background, bkg_rate = load_background_events(protons_path, electrons_path, source_alt, source_az, assumed_obs_time=t_obs, return_rate=True)
 
-    theta_uts = np.arange(0.01, 0.35, 0.01)
-    prediction_cuts = np.arange(0.0, 1, 0.05)
-    multiplicities = [2, 3, 4, 5, 6, 7, 8]
+    theta_cuts = np.arange(0.1, 0.22, 0.01)
+    prediction_cuts = np.arange(0.0, 1.05, 0.1)
+    multiplicities = np.arange(2, 5)
 
     # theta_uts = np.arange(0.01, 0.35, 0.2)
     # prediction_cuts = np.arange(0.0, 1, 0.25)
     # multiplicities = [2]
 
     best_sensitivity, best_prediction_cut, best_theta_cut, best_significance, best_mult = find_best_cuts(
-        theta_uts, prediction_cuts, multiplicities, gammas, background, alpha=1, criterion='significance', n_jobs=n_jobs
+        theta_cuts, prediction_cuts, multiplicities, gammas, background, alpha=1, criterion='significance', n_jobs=n_jobs
     )
 
     gammas_gammalike = gammas.query(f'gamma_prediction_mean > {best_prediction_cut}').copy()
@@ -87,8 +88,12 @@ def main(gammas_path, protons_path, electrons_path, output, n_jobs):
 
     if output:
         plt.savefig(output)
+        p, _ = os.path.splitext(output) 
+        with open(f'{p}_rate_raw.txt', 'w') as f:
+            f.write(f'\\num{{{bkg_rate.value:.0f}}}')
     else:
         plt.show()
+    
 
 
 if __name__ == '__main__':
