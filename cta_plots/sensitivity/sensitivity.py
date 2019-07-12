@@ -206,7 +206,7 @@ def main(
 
     e_min, e_max = 0.02 * u.TeV, 200 * u.TeV
     bin_edges, bin_center, _ = make_default_cta_binning(e_min=e_min, e_max=e_max)
-    SIGMA = 2
+    SIGMA = 1
     if correct_bias:
         from scipy.stats import binned_statistic
         from cta_plots import create_interpolated_function
