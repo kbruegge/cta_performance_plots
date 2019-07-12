@@ -52,7 +52,7 @@ def load_data_description(path, data, cuts_path=None):
 
 def load_angular_resolution_function(angular_resolution_path, sigma=1):
     df = pd.read_csv(angular_resolution_path)
-    f = create_interpolated_function(df.energy.values, df.resolution, sigma=sigma)
+    f = create_interpolated_function(df.energy_prediction.values, df.angular_resolution, sigma=sigma)
     return f
 
 

@@ -16,12 +16,45 @@ from cta_plots.binning import make_default_cta_binning
 from cta_plots.sensitivity.plotting import plot_crab_flux, plot_reference, plot_requirement, plot_sensitivity
 from cta_plots.sensitivity import calculate_n_off, calculate_n_signal
 from cta_plots.sensitivity.optimize import find_best_cuts
+from cta_plots.coordinate_utils import calculate_distance_to_true_source_position
+
 from cta_plots.spectrum import CrabSpectrum
 from cta_plots.sensitivity import find_relative_sensitivity_poisson, check_validity
 
 from scipy.ndimage import gaussian_filter1d
 
 crab = CrabSpectrum()
+
+
+def optimize_event_selection_fixed_theta(gammas, background, bin_edges, alpha=0.2, n_jobs=4):
+    results = []
+
+
+    groups = pd.cut(gammas.gamma_energy_prediction_mean, bins=bin_edges)
+    g = gammas.groupby(groups)
+
+    groups = pd.cut(background.gamma_energy_prediction_mean, bins=bin_edges)
+    b = background.groupby(groups)
+
+    for (_, signal_in_range), (_, background_in_range) in tqdm(zip(g, b), total=len(bin_edges) - 1):
+        distance = calculate_distance_to_true_source_position(signal_in_range)
+        theta_cuts = np.array([np.nanpercentile(distance, 50)])
+        best_sensitivity, best_prediction_cut, best_theta_cut, best_significance, best_mult = find_best_cuts(
+            theta_cuts, PREDICTION_CUTS, MULTIPLICITIES, signal_in_range, background_in_range, alpha=alpha, n_jobs=n_jobs
+        )
+
+        d = {
+            'prediction_cut': best_prediction_cut,
+            'significance': best_significance,
+            'theta_cut': best_theta_cut,
+            'multiplicity': best_mult,
+        }
+        results.append(d)
+
+    results_df = pd.DataFrame(results)
+    results_df['e_min'] = bin_edges[:-1]
+    results_df['e_max'] = bin_edges[1:]
+    return results_df
 
 
 def optimize_event_selection(gammas, background, bin_edges, alpha=0.2, n_jobs=4):
@@ -32,10 +65,6 @@ def optimize_event_selection(gammas, background, bin_edges, alpha=0.2, n_jobs=4)
     # multiplicities = np.arange(2, 10)
 
 
-    theta_cuts = np.arange(0.02, 0.20, 0.01)
-    prediction_cuts = np.arange(0.0, 1.05, 0.1)
-    multiplicities = np.arange(2, 8)
-
     groups = pd.cut(gammas.gamma_energy_prediction_mean, bins=bin_edges)
     g = gammas.groupby(groups)
 
@@ -44,7 +73,7 @@ def optimize_event_selection(gammas, background, bin_edges, alpha=0.2, n_jobs=4)
 
     for (_, signal_in_range), (_, background_in_range) in tqdm(zip(g, b), total=len(bin_edges) - 1):
         best_sensitivity, best_prediction_cut, best_theta_cut, best_significance, best_mult = find_best_cuts(
-            theta_cuts, prediction_cuts, multiplicities, signal_in_range, background_in_range, alpha=alpha, n_jobs=n_jobs
+            THETA_CUTS, PREDICTION_CUTS, MULTIPLICITIES, signal_in_range, background_in_range, alpha=alpha, n_jobs=n_jobs
         )
 
         d = {
@@ -101,11 +130,11 @@ def calc_relative_sensitivity(gammas, background, cuts, alpha, sigma=0):
             background_gammalike, best_theta_cut, alpha=alpha
         )
 
-        print('----------------')
-        valid = check_validity(n_signal_counts, n_off_counts, total_bkg_counts, alpha=alpha, silent=False)
-        print('----------------')
-        valid &= check_validity(n_signal, n_off, total_bkg_counts, alpha=alpha, silent=False)
-        print('----------------')
+        # print('----------------')
+        # valid = check_validity(n_signal_counts, n_off_counts, total_bkg_counts, alpha=alpha, silent=True)
+        # print('----------------')
+        valid = check_validity(n_signal, n_off, total_bkg_counts, alpha=alpha, silent=False)
+        # print('----------------')
         rs = find_relative_sensitivity_poisson(n_signal, n_off, n_signal_counts, n_off_counts, alpha=alpha)
         m, l, h = rs
         
@@ -132,6 +161,11 @@ def calc_relative_sensitivity(gammas, background, cuts, alpha, sigma=0):
     return results_df
 
 
+THETA_CUTS = np.arange(0.01, 0.30, 0.01)
+PREDICTION_CUTS = np.arange(0.0, 1.05, 0.05)
+MULTIPLICITIES = np.arange(2, 12)
+
+
 @click.command()
 @click.argument('gammas_path', type=click.Path(exists=True))
 @click.argument('protons_path', type=click.Path(exists=True))
@@ -143,6 +177,7 @@ def calc_relative_sensitivity(gammas, background, cuts, alpha, sigma=0):
 @click.option('--n_jobs', default=4)
 @click.option('--landscape/--no-landscape', default=False)
 @click.option('--reference/--no-reference', default=False)
+@click.option('--fix_theta/--no-fix_theta', default=False)
 @click.option('--correct_bias/--no-correct_bias', default=True)
 @click.option('--requirement/--no-requirement', default=False)
 @click.option('--flux/--no-flux', default=True)
@@ -157,6 +192,7 @@ def main(
     n_jobs,
     landscape,
     reference,
+    fix_theta,
     correct_bias,
     requirement,
     flux,
@@ -170,7 +206,7 @@ def main(
 
     e_min, e_max = 0.02 * u.TeV, 200 * u.TeV
     bin_edges, bin_center, _ = make_default_cta_binning(e_min=e_min, e_max=e_max)
-
+    SIGMA = 2
     if correct_bias:
         from scipy.stats import binned_statistic
         from cta_plots import create_interpolated_function
@@ -180,7 +216,7 @@ def main(
         resolution = (e_reco - e_true) / e_true
 
         median, _, _ = binned_statistic(e_reco, resolution, statistic=np.nanmedian, bins=bin_edges)
-        energy_bias = create_interpolated_function(bin_center, median, sigma=0.5)
+        energy_bias = create_interpolated_function(bin_center, median, sigma=SIGMA)
 
         e_corrected = e_reco / (energy_bias(e_reco) + 1)
         gammas.gamma_energy_prediction_mean = e_corrected
@@ -192,13 +228,18 @@ def main(
     else:
         print(Fore.YELLOW + 'Not correcting for energy bias' + Fore.RESET)
 
-    df_cuts = optimize_event_selection(gammas, background, bin_edges, alpha=0.2, n_jobs=n_jobs)
-    df_sensitivity = calc_relative_sensitivity(gammas, background, df_cuts, alpha=0.2, sigma=0.5)
+    if fix_theta:
+        print('Not optimizing theta!')
+        df_cuts = optimize_event_selection_fixed_theta(gammas, background, bin_edges, alpha=0.2, n_jobs=n_jobs)
+    else:
+        df_cuts = optimize_event_selection(gammas, background, bin_edges, alpha=0.2, n_jobs=n_jobs)
+    
+    df_sensitivity = calc_relative_sensitivity(gammas, background, df_cuts, alpha=0.2, sigma=SIGMA)
 
     print(df_sensitivity)
     if landscape:
         size = plt.gcf().get_size_inches()
-        plt.figure(figsize=(8.24, size[0]*0.9))
+        plt.figure(figsize=(8.24, size[0] * 0.9))
     
     ax = plot_sensitivity(df_sensitivity, bin_edges, bin_center, color=color, lw=2)
 
@@ -218,7 +259,7 @@ def main(
     ax.set_ylabel(ylabel)
     ax.set_xlabel(r'Estimated Energy / TeV')
     
-    # fix legend handles. The handle for the reference is different form a line2d handle. this makes it consostent.
+    # fix legend handles. The handle for the reference is different form a line2d handle. this makes it consistent.
     from matplotlib.lines import Line2D
     handles = ax.get_legend_handles_labels()[0]
     labels = ax.get_legend_handles_labels()[1]
@@ -238,9 +279,22 @@ def main(
         print(f"writing csv to {n + '.csv'}")
         df_sensitivity.to_csv(n + '.csv', index=False, na_rep='NaN')
         plt.savefig(output)
+
+        with open(f'{n}_theta_cuts.txt', 'w') as f:
+            f.write(cuts_to_latex(THETA_CUTS))
+
+        with open(f'{n}_prediction_cuts.txt', 'w') as f:
+            f.write(cuts_to_latex(PREDICTION_CUTS))
+
+        with open(f'{n}_multiplicities.txt', 'w') as f:
+            f.write(cuts_to_latex(MULTIPLICITIES))
     else:
         plt.show()
 
+
+def cuts_to_latex(array):
+    s = f'\{{ {array[0]}, {array[1]}, \\ldots, {array[-1]} \}} '
+    return s
 
 
 if __name__ == '__main__':

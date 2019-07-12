@@ -13,7 +13,7 @@ from fact.io import read_data
 from cta_plots import load_signal_events, load_background_events, ELECTRON_TYPE
 # from cta_plots import load_signal_events, load_background_events, ELECTRON_TYPE
 from cta_plots.sensitivity.optimize import find_best_cuts
-from cta_plots.binning import make_energy_bins
+from cta_plots.binning import make_default_cta_binning
 from tqdm import tqdm
 
 
@@ -25,12 +25,6 @@ def add_theta_square_histogram(gammas_gammalike, background_gammalike, theta_squ
 
     h_off, _ = np.histogram(off['theta'] ** 2, bins=bins, weights=off.weight)
     h_on, _ = np.histogram(on['theta'] ** 2, bins=bins, weights=on.weight)
-
-    # if True:
-    #     h, _ = np.histogram(off['theta'] ** 2, bins=bins)
-    #     is_valid = (h == 0).sum() < len(h)//2 # less than half of the bins have to be nonzero 
-    #     print(f'Number of zero entries: {(h_off == 0).sum()}, length of hist : {len(h_off)},  ')
-    #     print(f'Is valid: {is_valid} ')
 
     ax.step(bins[:-1], h_on + h_off.mean(), where='post', label='on events')
     ax.step(bins[:-1], h_off, where='post', label='off events protons')
@@ -62,44 +56,66 @@ def add_text_to_axis(
     ax.axvline(x=best_theta_square_cut, color='gray', lw=1, alpha=0.7)
 
 
+
 @click.command()
 @click.argument('gammas_path', type=click.Path(exists=True))
 @click.argument('protons_path', type=click.Path(exists=True))
 @click.argument('electrons_path', type=click.Path(exists=True))
+@click.option('--correct_bias/--no-correct_bias', default=True)
 @click.option('-o', '--output', type=click.Path(exists=False))
-def main(gammas_path, protons_path, electrons_path, output):
+def main(gammas_path, protons_path, electrons_path, correct_bias, output):
 
-    t_obs = 30 * u.min
+    t_obs = 50 * u.h
 
     gammas, source_alt, source_az = load_signal_events(gammas_path, assumed_obs_time=t_obs)
     background = load_background_events(
         protons_path, electrons_path, source_alt, source_az, assumed_obs_time=t_obs
     )
-    n_bins = 20
-    e_min, e_max = 0.02 * u.TeV, 200 * u.TeV
-    bin_edges, _, _ = make_energy_bins(e_min=e_min, e_max=e_max, bins=n_bins, centering='log')
 
-    theta_square_cuts = np.arange(0.01, 0.35, 0.02)
-    prediction_cuts = np.arange(0.3, 1, 0.05)
-    multiplicities = [2, 3, 4, 5, 6, 7]
+    e_min, e_max = 0.02 * u.TeV, 200 * u.TeV
+    bin_edges, bin_center, _ = make_default_cta_binning(e_min=e_min, e_max=e_max)
+
+    theta_cuts = np.arange(0.02, 0.20, 0.01)
+    prediction_cuts = np.arange(0.0, 1.05, 0.025)
+    multiplicities = np.arange(2, 12)
 
     rows = int(np.sqrt(len(bin_edges)) + 1)
     cols = int(np.sqrt(len(bin_edges)))
     fig, axs = plt.subplots(rows, cols, figsize=(16, 16), constrained_layout=True, sharex=True)
+
+    if correct_bias:
+        from scipy.stats import binned_statistic
+        from cta_plots import create_interpolated_function
+
+        e_reco = gammas.gamma_energy_prediction_mean
+        e_true = gammas.mc_energy
+        resolution = (e_reco - e_true) / e_true
+
+        median, _, _ = binned_statistic(e_reco, resolution, statistic=np.nanmedian, bins=bin_edges)
+        energy_bias = create_interpolated_function(bin_center, median, sigma=0.5)
+
+        e_corrected = e_reco / (energy_bias(e_reco) + 1)
+        gammas.gamma_energy_prediction_mean = e_corrected
+
+        e_reco = background.gamma_energy_prediction_mean
+        e_corrected = e_reco / (energy_bias(e_reco) + 1)
+        background.gamma_energy_prediction_mean = e_corrected
 
     groups = pd.cut(gammas.gamma_energy_prediction_mean, bins=bin_edges)   
     g = gammas.groupby(groups) 
 
     groups = pd.cut(background.gamma_energy_prediction_mean, bins=bin_edges)   
     b = background.groupby(groups) 
+
+
     
     iterator = zip(g, b, axs.ravel())
     # alpha = 0.2
-
-    for (n, signal_in_range), (_, background_in_range), ax in tqdm(iterator, total=n_bins):
+    results = []
+    for (n, signal_in_range), (_, background_in_range), ax in tqdm(iterator, total=len(bin_center)):
         # print(f'Energy mean before passing data: {signal_in_range.gamma_energy_prediction_mean.mean()}')
         best_sensitivity, best_prediction_cut, best_theta_cut, best_significance, best_mult = find_best_cuts(
-            theta_square_cuts, prediction_cuts, multiplicities, signal_in_range, background_in_range, alpha=1, criterion='significance', n_jobs=8
+            theta_cuts, prediction_cuts, multiplicities, signal_in_range, background_in_range, alpha=0.2, criterion='sensitivity', n_jobs=8
         )
         # print('--//----'*10)
         # print(f'Best prediction cut {best_prediction_cut}')
@@ -118,6 +134,22 @@ def main(gammas_path, protons_path, electrons_path, output):
             n.right,
             ax,
         )
+
+        d = {
+            'prediction_cut': best_prediction_cut,
+            'significance': best_significance,
+            'theta_cut': best_theta_cut,
+            'multiplicity': best_mult,
+        }
+        results.append(d)
+
+    results_df = pd.DataFrame(results)
+
+    # print(optimize_event_selection(gammas, background, bin_edges, n_jobs=8))
+
+    results_df['e_min'] = bin_edges[:-1]
+    results_df['e_max'] = bin_edges[1:]
+    print(results_df)
 
     if output:
         plt.savefig(output)
