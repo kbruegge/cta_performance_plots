@@ -216,7 +216,7 @@ def main(
         resolution = (e_reco - e_true) / e_true
 
         median, _, _ = binned_statistic(e_reco, resolution, statistic=np.nanmedian, bins=bin_edges)
-        energy_bias = create_interpolated_function(bin_center, median, sigma=0)
+        energy_bias = create_interpolated_function(bin_center, median, sigma=SIGMA)
 
         e_corrected = e_reco / (energy_bias(e_reco) + 1)
         gammas.gamma_energy_prediction_mean = e_corrected
