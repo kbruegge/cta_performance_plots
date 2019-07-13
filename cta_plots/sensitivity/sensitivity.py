@@ -162,8 +162,8 @@ def calc_relative_sensitivity(gammas, background, cuts, alpha, sigma=0):
 
 
 THETA_CUTS = np.arange(0.01, 0.18, 0.01)
-PREDICTION_CUTS = np.arange(0.0, 1.05, 0.05)
-MULTIPLICITIES = np.arange(2, 12)
+PREDICTION_CUTS = np.arange(0.3, 1.05, 0.05)
+MULTIPLICITIES = np.arange(2, 11)
 
 
 @click.command()
@@ -216,7 +216,7 @@ def main(
         resolution = (e_reco - e_true) / e_true
 
         median, _, _ = binned_statistic(e_reco, resolution, statistic=np.nanmedian, bins=bin_edges)
-        energy_bias = create_interpolated_function(bin_center, median, sigma=5)
+        energy_bias = create_interpolated_function(bin_center, median, sigma=0)
 
         e_corrected = e_reco / (energy_bias(e_reco) + 1)
         gammas.gamma_energy_prediction_mean = e_corrected

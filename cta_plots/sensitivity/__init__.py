@@ -48,9 +48,9 @@ def check_validity(n_signal, n_off, total_bkg_counts, alpha=0.2, silent=True):
     n_on = n_signal + alpha * n_off
 
 
-    enough_bkg_counts = total_bkg_counts >= 20  # unweighted background counts
+    enough_bkg_counts = total_bkg_counts >= 100  # unweighted background counts
     # if not silent:
-    # enough_bkg_counts = enough_bkg_counts & (n_off >= 1)
+    enough_bkg_counts = enough_bkg_counts & (n_off >= 3)
     enough_signal_counts = n_signal >= 10
     # https://forge.in2p3.fr/projects/cta_analysis-and-simulations/repository/changes/DOC/InternalReports/IRFReports/released/v1.1/cta-aswg-IRFreport.pdf
     systematic = n_signal > (n_off * 0.05 / alpha)
