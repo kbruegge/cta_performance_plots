@@ -49,7 +49,7 @@ def plot_h_max(reconstructed_events, site='paranal', colormap=default_cmap, colo
     df = df.loc[df.mc_x_max > 0]
     thickness, altitude = get_atmosphere_profile_functions(site)
 
-    mc_h_max = altitude(df.mc_x_max.values * u.Unit('g/cm^2')).value
+    mc_h_max = altitude(df.mc_x_max.clip(upper=1020).values * u.Unit('g/cm^2'))  
 
     bins, bin_center, bin_widths = make_default_cta_binning(e_min=0.01 * u.TeV, e_max=200 * u.TeV,)
     x = df.mc_energy.values
@@ -66,12 +66,7 @@ def plot_h_max(reconstructed_events, site='paranal', colormap=default_cmap, colo
     im = ax.hexbin(x, mc_h_max, xscale='log', extent=(log_emin, log_emax, 0, 17500), cmap=colormap, norm=PowerNorm(0.5))
     add_colorbar_to_figure(im, fig, ax, label='Counts')
 
-    # ax.step(bins[:-1], b_50, lw=2, color=color, label='Median Prediction', where='post')
     ax.hlines(b_50[:-1], bins[:-2], bins[1:-1], lw=2, color=color, label='Median Prediction')
-    # hardcore fix for stupid step plotting artifact
-    # b_16[-1] = b_16[-2]
-    # b_50[-1] = b_50[-2]
-    # b_84[-1] = b_84[-2]
     ax.fill_between(bins[:-1], b_16, b_84, alpha=0.3, color=color, step='post')
 
     ax.set_xscale('log')
