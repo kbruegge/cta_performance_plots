@@ -26,7 +26,8 @@ def prediction_function(cuts_path, sigma=0):
 @click.option('-o', '--output', type=click.Path(exists=False))
 @click.option('-p', '--cuts_path', type=click.Path(exists=True))
 @click.option('--reference/--no-reference', default=True)
-def main(input_file, output, cuts_path, reference):
+@click.option('--cmap', default='magma')
+def main(input_file, output, cuts_path, reference, cmap):
 
     bins, bin_center, bin_widths = make_default_cta_binning(e_min=0.005 * u.TeV, bins_per_decade=15)
 
@@ -65,10 +66,10 @@ def main(input_file, output, cuts_path, reference):
     color = None
     if cuts_path:
         f_prediction = prediction_function(cuts_path, sigma=0)
-        magma = cm.get_cmap('magma', 512)
-        color = magma(f_prediction(bin_center.value[mask]))
+        colormap = cm.get_cmap(cmap, 512)
+        color = colormap(f_prediction(bin_center.value[mask]))
 
-        sm = cm.ScalarMappable(cmap=magma)
+        sm = cm.ScalarMappable(cmap=colormap)
         plt.colorbar(sm, label='Prediction Threshold', pad=0.01)
         
     plt.errorbar(
