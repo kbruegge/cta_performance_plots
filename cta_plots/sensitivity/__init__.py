@@ -48,7 +48,7 @@ def check_validity(n_signal, n_off, total_bkg_counts, alpha=0.2, silent=True):
     n_on = n_signal + alpha * n_off
 
 
-    enough_bkg_counts = total_bkg_counts >= 100  # unweighted background counts
+    enough_bkg_counts = total_bkg_counts >= 20  # unweighted background counts
     # if not silent:
     # enough_bkg_counts = enough_bkg_counts & (n_off >= 1)
     enough_signal_counts = n_signal >= 10

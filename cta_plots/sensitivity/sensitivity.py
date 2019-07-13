@@ -161,7 +161,7 @@ def calc_relative_sensitivity(gammas, background, cuts, alpha, sigma=0):
     return results_df
 
 
-THETA_CUTS = np.arange(0.01, 0.30, 0.01)
+THETA_CUTS = np.arange(0.01, 0.18, 0.01)
 PREDICTION_CUTS = np.arange(0.0, 1.05, 0.05)
 MULTIPLICITIES = np.arange(2, 12)
 
@@ -206,7 +206,7 @@ def main(
 
     e_min, e_max = 0.02 * u.TeV, 200 * u.TeV
     bin_edges, bin_center, _ = make_default_cta_binning(e_min=e_min, e_max=e_max)
-    SIGMA = 1
+    SIGMA = 0
     if correct_bias:
         from scipy.stats import binned_statistic
         from cta_plots import create_interpolated_function
@@ -216,7 +216,7 @@ def main(
         resolution = (e_reco - e_true) / e_true
 
         median, _, _ = binned_statistic(e_reco, resolution, statistic=np.nanmedian, bins=bin_edges)
-        energy_bias = create_interpolated_function(bin_center, median, sigma=SIGMA)
+        energy_bias = create_interpolated_function(bin_center, median, sigma=5)
 
         e_corrected = e_reco / (energy_bias(e_reco) + 1)
         gammas.gamma_energy_prediction_mean = e_corrected
