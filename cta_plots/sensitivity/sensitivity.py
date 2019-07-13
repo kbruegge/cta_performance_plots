@@ -162,7 +162,7 @@ def calc_relative_sensitivity(gammas, background, cuts, alpha, sigma=0):
 
 
 THETA_CUTS = np.arange(0.01, 0.18, 0.01)
-PREDICTION_CUTS = np.arange(0.3, 1.05, 0.05)
+PREDICTION_CUTS = np.arange(0.0, 1.05, 0.05)
 MULTIPLICITIES = np.arange(2, 11)
 
 
