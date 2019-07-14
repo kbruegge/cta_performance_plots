@@ -11,7 +11,7 @@ from cta_plots.colors import default_cmap, main_color, main_color_complement
 from .. import add_colorbar_to_figure
 
 
-def plot_resolution(e_true, e_reco, color='#5f218c', reference=False, relative=False, plot_e_reco=False, plot_bias=False, ax=None):
+def plot_resolution(e_true, e_reco, color='#5f218c', reference=False, method='cta', plot_e_reco=False, plot_bias=False, ax=None):
 
     if not ax:
         fig, ax = plt.subplots(1, 1)
@@ -25,22 +25,24 @@ def plot_resolution(e_true, e_reco, color='#5f218c', reference=False, relative=F
         e_x = e_true
 
     resolution = (e_reco - e_true) / e_true
-    if relative:
+    if method == 'relative':
         iqr, _, _ = binned_statistic(e_x, resolution, statistic=lambda y: ((np.nanpercentile(y, 84) - np.nanpercentile(y, 16)) / 2), bins=bins)
-    else:
+    elif method in ['absolute', 'cta']:
         iqr, _, _ = binned_statistic(e_x, resolution, statistic=lambda y: np.nanpercentile(np.abs(y), 68), bins=bins)
+
+
 
     median, _, _ = binned_statistic(e_x, resolution, statistic=np.nanmedian, bins=bins)
 
     max_y = 1.
-    min_y = -0.5 if relative else 0
+    min_y = -0.5  # if method == 'relative' else 0
     bins_y = np.linspace(min_y, max_y, 40)
 
     log_emin, log_emax = np.log10(0.007), np.log10(300)
-    if relative:
-        im = ax.hexbin(e_x, resolution, xscale='log', extent=(log_emin, log_emax, -1, max_y), cmap=default_cmap,)
-    else:
-        im = ax.hexbin(e_x, np.abs(resolution), xscale='log', extent=(log_emin, log_emax, -1, max_y), cmap=default_cmap,)
+    # if method == 'relative':
+    im = ax.hexbin(e_x, resolution, xscale='log', extent=(log_emin, log_emax, -1, max_y), cmap=default_cmap,)
+    # else:
+        # im = ax.hexbin(e_x, np.abs(resolution), xscale='log', extent=(log_emin, log_emax, -1, max_y), cmap=default_cmap,)
     
     add_colorbar_to_figure(im, fig, ax, label='Counts')
 

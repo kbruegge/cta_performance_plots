@@ -194,17 +194,17 @@ def impact_distance(ctx, color, cmap):
 
 @cli.command()
 @click.option('--reference/--no-reference', default=False)
-@click.option('--relative/--no-relative', default=True)
+@click.option('--method', default='relative', type=click.Choice(['cta', 'relative', 'absolute']))
 @click.option('--plot_e_reco', is_flag=True, default=False)
 @click.option('--plot_bias', is_flag=True, default=False)
 @click.pass_context
-def energy_resolution(ctx, reference, relative, plot_e_reco, plot_bias):
-    
+def energy_resolution(ctx, reference, method, plot_e_reco, plot_bias):
+
     reconstructed_events = ctx.obj['DATA']
 
     e_true = reconstructed_events.mc_energy
     e_reco = reconstructed_events.gamma_energy_prediction_mean
-    ax, df = plot_resolution(e_true, e_reco, reference=reference, relative=relative, plot_e_reco=plot_e_reco, plot_bias=plot_bias)
+    ax, df = plot_resolution(e_true, e_reco, reference=reference, method=method, plot_e_reco=plot_e_reco, plot_bias=plot_bias)
     ctx.obj["YLOG"] = False
     _apply_flags(ctx, ax, data=df)
 
