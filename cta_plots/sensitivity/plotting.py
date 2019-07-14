@@ -102,10 +102,10 @@ def plot_sensitivity(rs, bin_edges, bin_center, color='blue', ax=None, **kwargs)
     werr = [xerr[0][~m], xerr[1][~m]] 
     serr = [yerr[0][~m], yerr[1][~m]] 
     ax.errorbar(
-        bin_center[~m].to_value('TeV'), sensitivity[~m], xerr=werr, yerr=serr, linestyle='', ecolor='gray', alpha=0.5, zorder=20, **kwargs
+        bin_center[~m].to_value('TeV'), sensitivity[~m], xerr=werr, yerr=serr, linestyle='', ecolor='gray', alpha=0.15, zorder=20, **kwargs
     )
     ax.errorbar(
-        bin_center[~m].to_value('TeV'), sensitivity[~m], xerr=werr, yerr=serr, linestyle='', ecolor=color, alpha=0.4, zorder=20, **kwargs
+        bin_center[~m].to_value('TeV'), sensitivity[~m], xerr=werr, yerr=serr, linestyle='', ecolor=color, alpha=0.3, zorder=20, **kwargs
     )
 
     return ax

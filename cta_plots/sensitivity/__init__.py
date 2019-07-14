@@ -43,27 +43,37 @@ def load_sensitivity_requirement():
     return df
 
 
+def check_validity_counts(n_signal_counts, n_off_counts, total_bkg_counts, alpha=0.2, silent=True):
+    enough_bkg_counts = total_bkg_counts >= 80  # unweighted background counts
+    # enough_noff_counts = n_off_counts >= 3
+    enough_signal_counts = n_signal_counts >= 10
+    # systematic = n_signal_counts > (n_off_counts * 0.05)
+    if not silent:
+        print(f'bkg counts: {enough_bkg_counts}')
+        print(f'signal counts: {enough_signal_counts}')
+        # print(f'noff_counts: {enough_noff_counts}')
 
-def check_validity(n_signal, n_off, total_bkg_counts, alpha=0.2, silent=True):
+    return enough_bkg_counts & enough_signal_counts
+
+
+def check_validity(n_signal, n_off, alpha=0.2, silent=True):
     n_on = n_signal + alpha * n_off
+    enough_off_counts = n_off >= 3
 
-
-    enough_bkg_counts = total_bkg_counts >= 100  # unweighted background counts
-    # if not silent:
-    enough_bkg_counts = enough_bkg_counts & (n_off >= 3)
     enough_signal_counts = n_signal >= 10
     # https://forge.in2p3.fr/projects/cta_analysis-and-simulations/repository/changes/DOC/InternalReports/IRFReports/released/v1.1/cta-aswg-IRFreport.pdf
-    systematic = n_signal > (n_off * 0.05 / alpha)
     # must be higher than 5 times the assumed bkg systematic uncertainty of 1 percent. (See ASWG irf report)
+    # I assume 2 percent. Wowza. 
+    systematic = n_signal > (n_off * 0.1)
 
     required_excess = n_on > (alpha * n_off + 10)
     if not silent:
-        print(f'bkg: {enough_bkg_counts}')
-        # print(f'bkg: {enough_bkg_counts}')
+        print(f'off: {enough_off_counts}')
         print(f'signal: {enough_signal_counts}')
         print(f'sys: {systematic}')
         print(f'excess: {required_excess}')
-    return enough_bkg_counts & enough_signal_counts & systematic & required_excess
+
+    return enough_signal_counts & systematic & required_excess
 
 
 
@@ -121,8 +131,8 @@ def calculate_relative_sensitivity(signal_events, background_events, theta_cut, 
     n_off, n_off_count, total_bkg_counts = calculate_n_off(background_events, theta_cut, alpha=alpha)
 
     
-    # valid = check_validity(n_signal_count, n_off_count, total_bkg_counts, alpha=alpha)
-    valid = check_validity(n_signal, n_off, total_bkg_counts, alpha=alpha)
+    valid = check_validity(n_signal, n_off, alpha=alpha)
+    valid &= check_validity_counts(n_signal_count, n_off_count, total_bkg_counts, alpha=alpha)
 
     if valid:
         relative_sensitivity = find_relative_sensitivity(n_signal, n_off, alpha=alpha)

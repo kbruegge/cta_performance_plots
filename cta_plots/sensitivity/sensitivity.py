@@ -19,7 +19,7 @@ from cta_plots.sensitivity.optimize import find_best_cuts
 from cta_plots.coordinate_utils import calculate_distance_to_true_source_position
 
 from cta_plots.spectrum import CrabSpectrum
-from cta_plots.sensitivity import find_relative_sensitivity_poisson, check_validity
+from cta_plots.sensitivity import find_relative_sensitivity_poisson, check_validity, check_validity_counts
 
 from scipy.ndimage import gaussian_filter1d
 
@@ -133,7 +133,8 @@ def calc_relative_sensitivity(gammas, background, cuts, alpha, sigma=0):
         # print('----------------')
         # valid = check_validity(n_signal_counts, n_off_counts, total_bkg_counts, alpha=alpha, silent=True)
         # print('----------------')
-        valid = check_validity(n_signal, n_off, total_bkg_counts, alpha=alpha, silent=False)
+        valid = check_validity(n_signal, n_off, alpha=alpha, silent=False)
+        valid &= check_validity_counts(n_signal_counts, n_off_counts, total_bkg_counts, alpha=alpha, silent=False)
         # print('----------------')
         rs = find_relative_sensitivity_poisson(n_signal, n_off, n_signal_counts, n_off_counts, alpha=alpha)
         m, l, h = rs
@@ -162,7 +163,7 @@ def calc_relative_sensitivity(gammas, background, cuts, alpha, sigma=0):
 
 
 THETA_CUTS = np.arange(0.01, 0.18, 0.01)
-PREDICTION_CUTS = np.arange(0.0, 1.05, 0.05)
+PREDICTION_CUTS = np.arange(0.3, 1.05, 0.05)
 MULTIPLICITIES = np.arange(2, 11)
 
 
@@ -287,14 +288,16 @@ def main(
             f.write(cuts_to_latex(PREDICTION_CUTS))
 
         with open(f'{n}_multiplicities.txt', 'w') as f:
-            f.write(cuts_to_latex(MULTIPLICITIES))
+            f.write(cuts_to_latex(MULTIPLICITIES, integer=True))
     else:
         plt.show()
 
 
-def cuts_to_latex(array):
-    s = f'\{{ {array[0]}, {array[1]}, \\ldots, {array[-1]} \}} '
-    return s
+def cuts_to_latex(array, integer=False):
+    if integer:
+        return f'\{{ {array[0]}, {array[1]}, \\ldots, {array[-1]} \}} '
+    else:
+        return f'\{{ {array[0]:.2f}, {array[1]:.2f}, \\ldots, {array[-1]:.2f} \}} '
 
 
 if __name__ == '__main__':
