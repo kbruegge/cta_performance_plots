@@ -75,9 +75,9 @@ def main(gammas_path, protons_path, electrons_path, correct_bias, output):
     e_min, e_max = 0.02 * u.TeV, 200 * u.TeV
     bin_edges, bin_center, _ = make_default_cta_binning(e_min=e_min, e_max=e_max)
 
-    theta_cuts = np.arange(0.02, 0.20, 0.01)
-    prediction_cuts = np.arange(0.0, 1.05, 0.025)
-    multiplicities = np.arange(2, 12)
+    theta_cuts = np.arange(0.01, 0.18, 0.01)
+    prediction_cuts = np.arange(0.3, 1.05, 0.05)
+    multiplicities = np.arange(2, 11)
 
     rows = int(np.sqrt(len(bin_edges)) + 1)
     cols = int(np.sqrt(len(bin_edges)))
