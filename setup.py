@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='cta_plots',
-    version='0.0.3',
+    version='0.0.5',
     description='A collection of plotting scrtipts for CTA',
     url='https://github.com/mackaiver/cta_performance_plots',
     author='Kai Brügge',
