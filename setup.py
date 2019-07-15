@@ -2,15 +2,14 @@ from setuptools import setup, find_packages
 
 setup(
     name='cta_plots',
-    version='0.0.5',
+    version='0.0.6',
     description='A collection of plotting scrtipts for CTA',
     url='https://github.com/mackaiver/cta_performance_plots',
     author='Kai Brügge',
     author_email='kai.bruegge@tu-dortmund.de',
     license='BEER',
     package_data={
-        'resources/ascii': ['*.txt'],
-        'resources/': ['*.txt'],
+        '': ['*.txt'],
     },
     packages=find_packages(),
     include_package_data=True,
